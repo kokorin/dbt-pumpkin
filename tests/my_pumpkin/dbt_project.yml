@@ -1,0 +1,12 @@
+name: 'my_pumpkin'
+version: '1.0.0'
+
+profile: 'my_pumpkin'
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "dev.duckdb"
+
+models:
+  my_pumpkin:
