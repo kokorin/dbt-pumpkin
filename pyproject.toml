@@ -4,6 +4,8 @@ version = "0.1.0"
 description = ""
 authors = ["Denis Kokorin <kokorin86@gmail.com>"]
 readme = "README.md"
+license = "Apache-2.0"
+repository = "https://github.com/kokorin/dbt-pumpkin"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -15,6 +17,15 @@ tox = "^4.15.1"
 [tool.poetry.group.dev.dependencies]
 dbt-core = ">=1.5.0,<1.9.0"
 dbt-duckdb = ">=1.5.0,<1.9.0"
+pre-commit = "^3.7.1"
+
+[tool.black]
+line-length = 120
+
+[tool.yamlfix]
+explicit_start = false
+whitelines = 1
+sequence_style = "keep_style"
 
 [build-system]
 requires = ["poetry-core"]

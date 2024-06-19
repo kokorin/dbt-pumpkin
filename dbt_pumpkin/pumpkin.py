@@ -1,7 +1,8 @@
 from dbt.cli.main import dbtRunner, dbtRunnerResult
 from dbt.contracts.graph.manifest import Manifest
 
-def parse_manifest(project_dir:str = None, profiles_dir:str = None) -> Manifest:
+
+def parse_manifest(project_dir: str = None, profiles_dir: str = None) -> Manifest:
     # initialize
     dbt = dbtRunner()
 
@@ -18,5 +19,5 @@ def parse_manifest(project_dir:str = None, profiles_dir:str = None) -> Manifest:
     # inspect the results
     if not res.success:
         raise res.exception
-    
+
     return res.result
