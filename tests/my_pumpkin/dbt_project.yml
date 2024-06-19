@@ -8,5 +8,15 @@ clean-targets:
   - dbt_packages
   - dev.duckdb
 
+seeds:
+  my_pumpkin:
+    sources:
+      +schema: sources
+
+snapshots:
+  my_pumpkin:
+    sources:
+      +target_schema: sources
+
 models:
   my_pumpkin:
