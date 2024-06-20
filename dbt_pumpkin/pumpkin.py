@@ -1,9 +1,16 @@
 import json
-from dbt.cli.main import dbtRunner, dbtRunnerResult
-from dbt.contracts.graph.manifest import Manifest
-from dbt.contracts.graph.nodes import SourceDefinition, ModelNode, SnapshotNode, SeedNode
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Union
 from functools import cached_property
+import tempfile
+from pathlib import Path
+import shutil
+import os
+from dbt_pumpkin.dbt_compat import *
+from ruamel.yaml import YAML
+
+yaml = YAML(typ="safe")
+
+Resource = Union[SourceDefinition, ModelNode, SnapshotNode, SeedNode]
 
 
 class Pumpkin:
@@ -32,7 +39,7 @@ class Pumpkin:
         return res.result
 
     @cached_property
-    def selected_unique_ids(self) -> Dict[str, Set[str]]:
+    def selected_resource_ids(self) -> Dict[str, Set[str]]:
         """
         Returns a dictionary mapping resource type to a set of resource identifiers
         """
@@ -62,17 +69,73 @@ class Pumpkin:
         return result
 
     @cached_property
-    def selected_sources(self) -> List[SourceDefinition]:
-        return [self.manifest.sources[id] for id in self.selected_unique_ids.get("source", [])]
+    def selected_resources(self) -> List[Resource]:
+        results: List[Resource] = []
+
+        for resource_type, resource_ids in self.selected_resource_ids.items():
+            resource_by_id = self.manifest.sources if resource_type == "source" else self.manifest.nodes
+            results += [resource_by_id[id] for id in resource_ids]
+
+        return results
 
     @cached_property
-    def selected_snapshots(self) -> List[SnapshotNode]:
-        return [self.manifest.nodes[id] for id in self.selected_unique_ids.get("snapshot", [])]
+    def selected_resource_actual_schemas(self) -> Dict[str, List[ColumnInfo]]:
+        src_macros_path = Path(__file__).parent / "macros"
 
-    @cached_property
-    def selected_seeds(self) -> List[SeedNode]:
-        return [self.manifest.nodes[id] for id in self.selected_unique_ids.get("seed", [])]
+        if not src_macros_path.exists() or not src_macros_path.is_dir():
+            raise Exception(f"Macros directory is not found or doesn't exist: {src_macros_path}")
 
-    @cached_property
-    def selected_models(self) -> List[ModelNode]:
-        return [self.manifest.nodes[id] for id in self.selected_unique_ids.get("model", [])]
+        project_dir = Path(self.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir())
+
+        project_yml_path = project_dir / "dbt_project.yml"
+
+        if not project_yml_path.exists() or not project_yml_path.is_file():
+            raise Exception(f"dbt_project.ym is not found or doesn't exist: {project_yml_path}")
+
+        operation_args = {
+            resource.unique_id: [resource.database, resource.schema, resource.identifier]
+            for resource in self.selected_resources
+        }
+
+        project_yml = yaml.load(project_yml_path)
+        pumpkin_yml = {
+            "name": "dbt_pumpkin",
+            "version": "0.1.0",
+            "profile": project_yml["profile"],
+            # TODO copy vars?
+            "vars": {
+                # workaround for too long CMD on Windows
+                "get_column_types_args": operation_args
+            },
+        }
+
+        jinja_log_messages: List[str] = []
+
+        def event_callback(event: EventMsg):
+            if event.info.name == "JinjaLogInfo":
+                jinja_log_messages.append(event.info.msg)
+
+        # Can't use as TemporaryDirectory Context Manager: DBT doesn't release log file when dbtRunner completes
+        # On Python 3.10 and higher it's possible to set ignore_cleanup_errors = True
+        pumpkin_dir_str = tempfile.mkdtemp(prefix="dbt_pumpkin_")
+        pumpkin_dir = Path(pumpkin_dir_str)
+        shutil.copytree(src_macros_path, pumpkin_dir / "macros")
+        yaml.dump(pumpkin_yml, pumpkin_dir / "dbt_project.yml")
+
+        args = ["run-operation", "get_column_types", "--project-dir", pumpkin_dir_str]
+        if self.profiles_dir:
+            args += ["--profiles-dir", self.profiles_dir]
+
+        res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)
+
+        if not res.success:
+            raise res.exception
+
+        assert jinja_log_messages
+
+        column_types_response = json.loads(jinja_log_messages[0])
+
+        return {
+            id: [ColumnInfo(name=c["name"], data_type=c["data_type"]) for c in columns]
+            for id, columns in column_types_response.items()
+        }
