@@ -1,12 +1,25 @@
 import json
-from typing import List, Set, Dict, Union
-from functools import cached_property
-import tempfile
-from pathlib import Path
-import shutil
 import os
-from dbt_pumpkin.dbt_compat import *
+import shutil
+import tempfile
+from functools import cached_property
+from pathlib import Path
+from typing import Dict, List, Set, Union
+
 from ruamel.yaml import YAML
+
+from dbt_pumpkin.dbt_compat import (
+    ColumnInfo,
+    EventMsg,
+    Manifest,
+    ModelNode,
+    SeedNode,
+    SnapshotNode,
+    SourceDefinition,
+    dbtRunner,
+    dbtRunnerResult,
+    default_project_dir,
+)
 
 yaml = YAML(typ="safe")
 
