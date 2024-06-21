@@ -6,7 +6,7 @@ profile: my_pumpkin
 clean-targets:
   - target
   - dbt_packages
-  - dev.duckdb
+  - "{{ env_var('TEMP', '/tmp') }}/dev.duckdb"
 
 seeds:
   my_pumpkin:
