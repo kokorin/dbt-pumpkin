@@ -21,8 +21,6 @@ from dbt_pumpkin.dbt_compat import (
     default_project_dir,
 )
 
-yaml = YAML(typ="safe")
-
 Resource = Union[SourceDefinition, ModelNode, SnapshotNode, SeedNode]
 
 
@@ -35,6 +33,7 @@ class Pumpkin:
         self.profiles_dir = profiles_dir
         self.selects = selects or []
         self.excludes = excludes or []
+        self._yaml = YAML(typ="safe")
 
     @cached_property
     def manifest(self) -> Manifest:
@@ -110,7 +109,7 @@ class Pumpkin:
             for resource in self.selected_resources
         }
 
-        project_yml = yaml.load(project_yml_path)
+        project_yml = self._yaml.load(project_yml_path)
         pumpkin_yml = {
             "name": "dbt_pumpkin",
             "version": "0.1.0",
@@ -133,7 +132,7 @@ class Pumpkin:
         pumpkin_dir_str = tempfile.mkdtemp(prefix="dbt_pumpkin_")
         pumpkin_dir = Path(pumpkin_dir_str)
         shutil.copytree(src_macros_path, pumpkin_dir / "macros")
-        yaml.dump(pumpkin_yml, pumpkin_dir / "dbt_project.yml")
+        self._yaml.dump(pumpkin_yml, pumpkin_dir / "dbt_project.yml")
 
         args = ["run-operation", "get_column_types", "--project-dir", pumpkin_dir_str]
         if self.profiles_dir:
