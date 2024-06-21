@@ -1,7 +1,9 @@
-import pytest
-from dbt_pumpkin.pumpkin import Pumpkin
 from typing import List
+
+import pytest
+
 from dbt_pumpkin.dbt_compat import ColumnInfo
+from dbt_pumpkin.pumpkin import Pumpkin
 
 
 def pumpkin(selects: List[str] = None, excludes: List[str] = None) -> Pumpkin:

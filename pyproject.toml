@@ -3,44 +3,44 @@ name = "dbt-pumpkin"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Denis Kokorin", email = "kokorin86@gmail.com"}
+  {name = "Denis Kokorin", email = "kokorin86@gmail.com"}
 ]
 readme = "README.md"
 license = "Apache-2.0"
-
 requires-python = ">=3.9"
-
 dependencies = [
-    "ruamel-yaml>=0.17"
+  "ruamel-yaml>=0.17"
 ]
 
 [project.urls]
 "Source code" = "https://github.com/kokorin/dbt-pumpkin"
 
+[tool.hatch]
+
 [tool.hatch.envs.default]
 dependencies = [
   "pytest",
-  "dbt-core>=1.8,<1.9",
-  "dbt-duckdb>=1.8,<1.9"
+  "dbt-core~=1.8",
+  "dbt-duckdb~=1.8"
 ]
 
 [tool.hatch.envs.hatch-test]
 # don't inherit from default
 template = "hatch-test"
 dependencies = [
-  "pytest",
+  "pytest"
 ]
 
 [tool.hatch.envs.hatch-test.overrides]
 matrix.dbt.dependencies = [
-  { value = "dbt-core~=1.5", if = ["1.5"] },
-  { value = "dbt-duckdb~=1.5", if = ["1.5"] },
-  { value = "dbt-core~=1.6", if = ["1.6"] },
-  { value = "dbt-duckdb~=1.6", if = ["1.6"] },
-  { value = "dbt-core~=1.7", if = ["1.7"] },
-  { value = "dbt-duckdb~=1.7", if = ["1.7"] },
-  { value = "dbt-core~=1.8", if = ["1.8"] },
-  { value = "dbt-duckdb~=1.8", if = ["1.8"] },
+  {value = "dbt-core~=1.5", if = ["1.5"]},
+  {value = "dbt-duckdb~=1.5", if = ["1.5"]},
+  {value = "dbt-core~=1.6", if = ["1.6"]},
+  {value = "dbt-duckdb~=1.6", if = ["1.6"]},
+  {value = "dbt-core~=1.7", if = ["1.7"]},
+  {value = "dbt-duckdb~=1.7", if = ["1.7"]},
+  {value = "dbt-core~=1.8", if = ["1.8"]},
+  {value = "dbt-duckdb~=1.8", if = ["1.8"]}
 ]
 
 [[tool.hatch.envs.hatch-test.matrix]]
@@ -51,16 +51,11 @@ dbt = ["1.5", "1.6", "1.7", "1.8"]
 python = ["3.12"]
 dbt = ["1.7", "1.8"]
 
-[tool.black]
-line-length = 120
-
 [tool.yamlfix]
 explicit_start = false
 whitelines = 1
 sequence_style = "keep_style"
 
-[tool.hatch]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
