@@ -29,5 +29,6 @@ jobs:
       - run: pip install hatch pre-commit
       # TODO enable later
       # - run: hatch fmt --check
+      - run: git fetch origin main
       - run: pre-commit run --from-ref origin/main --to-ref HEAD
       - run: hatch test --all
