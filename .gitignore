@@ -1,3 +1,2 @@
-/.venv
-/.tox
 __pycache__
+/.hatch
