@@ -31,4 +31,8 @@ jobs:
       # - run: hatch fmt --check
       - run: git fetch origin main
       - run: pre-commit run --from-ref origin/main --to-ref HEAD
+      - run: |
+          hatch run dbt clean
+          hatch run dbt seed
+          hatch run dbt build
       - run: hatch test --all
