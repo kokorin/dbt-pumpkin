@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import tempfile
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Set, Union
+from typing import Union
 
 from ruamel.yaml import YAML
 
@@ -20,6 +22,7 @@ from dbt_pumpkin.dbt_compat import (
     dbtRunnerResult,
     default_project_dir,
 )
+from dbt_pumpkin.exception import PumpkinError
 
 yaml = YAML(typ="safe")
 
@@ -27,9 +30,12 @@ Resource = Union[SourceDefinition, ModelNode, SnapshotNode, SeedNode]
 
 
 class Pumpkin:
-
     def __init__(
-        self, project_dir: str = None, profiles_dir: str = None, selects: List[str] = None, excludes: List[str] = None
+        self,
+        project_dir: str | None = None,
+        profiles_dir: str | None = None,
+        selects: list[str] | None = None,
+        excludes: list[str] | None = None,
     ) -> None:
         self.project_dir = project_dir
         self.profiles_dir = profiles_dir
@@ -52,7 +58,7 @@ class Pumpkin:
         return res.result
 
     @cached_property
-    def selected_resource_ids(self) -> Dict[str, Set[str]]:
+    def selected_resource_ids(self) -> dict[str, set[str]]:
         """
         Returns a dictionary mapping resource type to a set of resource identifiers
         """
@@ -72,7 +78,7 @@ class Pumpkin:
         if not res.success:
             raise res.exception
 
-        result: Dict[str, Set[str]] = {}
+        result: dict[str, set[str]] = {}
         for raw_resource in res.result:
             resource = json.loads(raw_resource)
             resource_type = resource["resource_type"]
@@ -82,28 +88,30 @@ class Pumpkin:
         return result
 
     @cached_property
-    def selected_resources(self) -> List[Resource]:
-        results: List[Resource] = []
+    def selected_resources(self) -> list[Resource]:
+        results: list[Resource] = []
 
         for resource_type, resource_ids in self.selected_resource_ids.items():
             resource_by_id = self.manifest.sources if resource_type == "source" else self.manifest.nodes
-            results += [resource_by_id[id] for id in resource_ids]
+            results += [resource_by_id[res_id] for res_id in resource_ids]
 
         return results
 
     @cached_property
-    def selected_resource_actual_schemas(self) -> Dict[str, List[ColumnInfo]]:
+    def selected_resource_actual_schemas(self) -> dict[str, list[ColumnInfo]]:
         src_macros_path = Path(__file__).parent / "macros"
 
         if not src_macros_path.exists() or not src_macros_path.is_dir():
-            raise Exception(f"Macros directory is not found or doesn't exist: {src_macros_path}")
+            msg = f"Macros directory is not found or doesn't exist: {src_macros_path}"
+            raise PumpkinError(msg)
 
         project_dir = Path(self.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir())
 
         project_yml_path = project_dir / "dbt_project.yml"
 
         if not project_yml_path.exists() or not project_yml_path.is_file():
-            raise Exception(f"dbt_project.ym is not found or doesn't exist: {project_yml_path}")
+            msg = f"dbt_project.yml is not found or doesn't exist: {project_yml_path}"
+            raise PumpkinError(msg)
 
         operation_args = {
             resource.unique_id: [resource.database, resource.schema, resource.identifier]
@@ -115,14 +123,14 @@ class Pumpkin:
             "name": "dbt_pumpkin",
             "version": "0.1.0",
             "profile": project_yml["profile"],
-            # TODO copy vars?
+            # TODO: copy vars?
             "vars": {
                 # workaround for too long CMD on Windows
                 "get_column_types_args": operation_args
             },
         }
 
-        jinja_log_messages: List[str] = []
+        jinja_log_messages: list[str] = []
 
         def event_callback(event: EventMsg):
             if event.info.name == "JinjaLogInfo":
@@ -144,11 +152,13 @@ class Pumpkin:
         if not res.success:
             raise res.exception
 
-        assert jinja_log_messages
+        if not jinja_log_messages:
+            msg = "No schema retrieved from database"
+            raise PumpkinError(msg)
 
         column_types_response = json.loads(jinja_log_messages[0])
 
         return {
-            id: [ColumnInfo(name=c["name"], data_type=c["data_type"]) for c in columns]
-            for id, columns in column_types_response.items()
+            res_id: [ColumnInfo(name=c["name"], data_type=c["data_type"]) for c in columns]
+            for res_id, columns in column_types_response.items()
         }

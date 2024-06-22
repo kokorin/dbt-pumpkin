@@ -16,6 +16,7 @@ env:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
@@ -32,10 +33,9 @@ jobs:
             3.12
           cache: pip
       - run: pip install hatch pre-commit
-      # TODO enable later
-      # - run: hatch fmt --check
       - run: git fetch origin main
       - run: pre-commit run --from-ref origin/main --to-ref HEAD
+      - run: hatch fmt --check
       - run: |
           hatch run dbt clean
           hatch run dbt seed
