@@ -1,4 +1,4 @@
-from typing import List
+from __future__ import annotations
 
 import pytest
 
@@ -6,7 +6,7 @@ from dbt_pumpkin.dbt_compat import ColumnInfo
 from dbt_pumpkin.pumpkin import Pumpkin
 
 
-def pumpkin(selects: List[str] = None, excludes: List[str] = None) -> Pumpkin:
+def pumpkin(selects: list[str] | None = None, excludes: list[str] | None = None) -> Pumpkin:
     return Pumpkin("tests/my_pumpkin", "tests/my_pumpkin", selects, excludes)
 
 
