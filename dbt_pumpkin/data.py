@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from pathlib import Path
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class ResourceType(Enum):
     SEED = "seed"
@@ -8,16 +14,60 @@ class ResourceType(Enum):
     MODEL = "model"
     SNAPSHOT = "snapshot"
 
-@dataclass
+    @property
+    def plural_name(self) -> str:
+        # all resource types conform to this rule
+        return self.value + "s"
+
+    @classmethod
+    def values(cls) -> set[str]:
+        return cls._value2member_map_.keys()
+
+
+@dataclass(frozen=True)
 class Column:
     name: str
-    data_type: str
-    description: str
+    data_type: str | None
+    description: str | None
 
 
-@dataclass
-class Resource:
-    name: str
-    type: ResourceType
-    path: Path
+@dataclass(frozen=True)
+class Table:
+    resource_id: ResourceID
     columns: list[Column]
+
+    def __hash__(self):
+        return hash(self.resource_id)
+
+
+@dataclass(frozen=True)
+class ResourceConfig:
+    pass
+
+
+@dataclass(frozen=True)
+class ResourceID:
+    unique_id: str
+
+    @property
+    def name(self) -> str:
+        return self.unique_id.split(".")[-1]
+
+    def __str__(self):
+        return self.unique_id
+
+
+@dataclass(frozen=True)
+class Resource:
+    unique_id: ResourceID
+    name: str
+    database: str
+    schema: str
+    identifier: str
+    type: ResourceType
+    yaml_path: Path | None
+    columns: list[Column]
+    config: ResourceConfig
+
+    def __hash__(self):
+        return hash(self.unique_id)

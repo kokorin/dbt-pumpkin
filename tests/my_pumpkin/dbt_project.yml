@@ -16,7 +16,7 @@ seeds:
 snapshots:
   my_pumpkin:
     sources:
-      +target_schema: sources
+      +target_schema: sources_snapshot
 
 models:
   my_pumpkin:
