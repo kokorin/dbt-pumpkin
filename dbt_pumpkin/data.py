@@ -65,6 +65,7 @@ class Resource:
     schema: str
     identifier: str
     type: ResourceType
+    path: Path | None
     yaml_path: Path | None
     columns: list[Column]
     config: ResourceConfig

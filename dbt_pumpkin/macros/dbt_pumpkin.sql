@@ -19,11 +19,3 @@
     {% endfor %}
     {{ log(tojson(result), info=True) }}
 {% endmacro %}
-
-{% macro get_resource_root_paths() %}
-    {% set result = {} %}
-    {% for resource_type, resource_paths in var('get_resource_root_paths_args').items() %}
-        {% do result.update({resource_type: resource_paths}) %}
-    {% endfor %}
-    {{ log(tojson(result), info=True) }}
-{% endmacro %}

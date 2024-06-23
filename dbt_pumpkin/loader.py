@@ -98,23 +98,14 @@ class ResourceLoader:
 
         return results
 
-    def _pumpkin_project_vars(self, project_yml: dict):
+    def _pumpkin_project_vars(self):
         get_column_types_args = {
             str(resource.unique_id): [resource.database, resource.schema, resource.identifier]
             for resource in self._raw_resources
         }
 
-        get_resource_root_paths_args = {
-            # Don't put sources here, as sources are always defined in YML
-            # SourceDefinition.path point to YML
-            "model": project_yml.get("model-paths", ["models"]),
-            "seed": project_yml.get("seed-paths", ["seeds"]),
-            "snapshot": project_yml.get("snapshot-paths", ["snapshots"]),
-        }
-
         return {
             "get_column_types_args": get_column_types_args,
-            "get_resource_root_paths_args": get_resource_root_paths_args,
         }
 
     def _create_pumpkin_project(self) -> Path:
@@ -141,7 +132,7 @@ class ResourceLoader:
             "version": "0.1.0",
             "profile": project_yml["profile"],
             # TODO: copy vars?
-            "vars": self._pumpkin_project_vars(project_yml),
+            "vars": self._pumpkin_project_vars(),
         }
 
         # OS may delete temp directory, keep fingers crossed
@@ -189,35 +180,6 @@ class ResourceLoader:
 
         return result
 
-    @cached_property
-    def resource_yaml_paths(self) -> dict[ResourceID, Path]:
-        # It's possible to use vars, env_vars in DBT paths, so we have to evaluate using operation
-        resource_root_paths_response: dict[str, list[str]] = self._run_operation("get_resource_root_paths")
-
-        result: dict[ResourceID, Path] = {}
-        for resource_type_str, root_paths in resource_root_paths_response.items():
-            res_type = ResourceType(resource_type_str)
-            res_ids: list[ResourceID] = self.resource_ids.get(res_type, [])
-            res_name_to_id: dict[str, ResourceID] = {res_id.name: res_id for res_id in res_ids}
-            for root_path_str in root_paths:
-                root_path = Path(self.project_dir) / root_path_str
-                for yml_path in root_path.rglob("*.yml"):
-                    yml: dict = self._yaml.load(yml_path)
-                    resources = yml.get(res_type.plural_name, [])
-                    for resource in resources:
-                        res_id = res_name_to_id.get(resource["name"], None)
-                        if res_id:
-                            result[res_id] = yml_path.relative_to(self.project_dir)
-
-        # Source's path is a path to YAML file where resource is defined,
-        # For other resource types path is a path to SQL or Python file
-        for raw_resource in self._raw_resources:
-            if ResourceType(raw_resource.resource_type) == ResourceType.SOURCE:
-                resource_id = ResourceID(raw_resource.unique_id)
-                result[resource_id] = Path(raw_resource.path)
-
-        return result
-
     @property
     def resources(self) -> list[Resource]:
         results: list[Resource] = []
@@ -225,7 +187,14 @@ class ResourceLoader:
         for raw_resource in self._raw_resources:
             resource_id = ResourceID(raw_resource.unique_id)
             resource_type = ResourceType(raw_resource.resource_type)
-            yaml_path = self.resource_yaml_paths.get(resource_id, None)
+            yaml_path = None
+            if raw_resource.patch_path:
+                # path_path starts with "project_name://", we just remove it
+                # DBT 1.5 has no manifest.metadata.project_name, so we use resource FQN which starts with project name
+                # patch_path_prefix = self.manifest.metadata.project_name + "://"
+                patch_path_prefix = raw_resource.fqn[0] + "://"
+                fixed_patch_path = raw_resource.patch_path.removeprefix(patch_path_prefix)
+                yaml_path = Path(fixed_patch_path)
 
             results.append(
                 Resource(
@@ -235,6 +204,7 @@ class ResourceLoader:
                     schema=raw_resource.schema,
                     identifier=raw_resource.identifier,
                     type=resource_type,
+                    path=Path(raw_resource.original_file_path),
                     yaml_path=yaml_path,
                     columns=[
                         Column(name=c.name, data_type=c.data_type, description=c.description)
