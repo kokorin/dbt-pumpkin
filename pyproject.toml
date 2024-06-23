@@ -64,7 +64,8 @@ sequence_style = "keep_style"
 filterwarnings = [
   "ignore:.*PyType_Spec with a metaclass that has custom tp_new.*:DeprecationWarning",
   "ignore:.*datetime.datetime.utcnow\\(\\) is deprecated.*:DeprecationWarning",
-  "ignore:.*method is deprecated, use 'warning' instead.*:DeprecationWarning"
+  "ignore:.*method is deprecated, use 'warning' instead.*:DeprecationWarning",
+  "ignore:.*invalid escape sequence \\/.*:DeprecationWarning"
 ]
 
 [build-system]
