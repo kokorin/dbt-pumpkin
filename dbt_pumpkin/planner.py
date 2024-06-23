@@ -1,10 +1,13 @@
+from pathlib import Path
+
 from dbt_pumpkin.data import Resource
+from dbt_pumpkin.plan import Plan
 
 
-class Planner:
-    def __init__(self, declared_resources: list[Resource], actual_resources: list[Resource]) -> None:
-        self.declared_resources = declared_resources
-        self.actual_resources = actual_resources
+class RelocationPlanner:
+    def __init__(self, project_dir: Path, resources: list[Resource]):
+        self.project_dir = project_dir
+        self.resources = resources
 
-    def plan_changes(self):
+    def plan_relocations(self) -> Plan:
         pass
