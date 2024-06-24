@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType
-from dbt_pumpkin.plan import AddResource, MoveResource
+from dbt_pumpkin.plan import InitializeResource, RelocateResource
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def stg_orders() -> Resource:
 
 
 def test_move_resource(stg_customers, files):
-    action = MoveResource(
+    action = RelocateResource(
         resource=stg_customers,
         from_path=Path("models/staging/_schema.yml"),
         to_path=Path("models/staging/stg_customers.yml"),
@@ -107,7 +107,7 @@ def test_move_resource(stg_customers, files):
 
 
 def test_add_resource(stg_orders, files):
-    action = AddResource(resource=stg_orders, to_path=Path("models/staging/stg_orders.yml"))
+    action = InitializeResource(resource=stg_orders, path=Path("models/staging/stg_orders.yml"))
 
     action.apply(files)
 

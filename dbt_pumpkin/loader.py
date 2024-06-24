@@ -204,7 +204,7 @@ class ResourceLoader:
                     schema=raw_resource.schema,
                     identifier=raw_resource.identifier,
                     type=resource_type,
-                    path=Path(raw_resource.original_file_path),
+                    path=Path(raw_resource.original_file_path) if resource_type != ResourceType.SOURCE else None,
                     yaml_path=yaml_path,
                     columns=[
                         Column(name=c.name, data_type=c.data_type, description=c.description)

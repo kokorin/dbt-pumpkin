@@ -23,6 +23,9 @@ class ResourceType(Enum):
     def values(cls) -> set[str]:
         return cls._value2member_map_.keys()
 
+    def __str__(self):
+        return self.value
+
 
 @dataclass(frozen=True)
 class Column:
@@ -42,7 +45,7 @@ class Table:
 
 @dataclass(frozen=True)
 class ResourceConfig:
-    pass
+    yaml_path: str | None
 
 
 @dataclass(frozen=True)
@@ -61,6 +64,7 @@ class ResourceID:
 class Resource:
     unique_id: ResourceID
     name: str
+    source_name: str | None
     database: str
     schema: str
     identifier: str
@@ -68,7 +72,7 @@ class Resource:
     path: Path | None
     yaml_path: Path | None
     columns: list[Column]
-    config: ResourceConfig
+    config: ResourceConfig | None
 
     def __hash__(self):
         return hash(self.unique_id)

@@ -1,13 +1,70 @@
 from pathlib import Path
 
-from dbt_pumpkin.data import Resource
-from dbt_pumpkin.plan import Plan
+from dbt_pumpkin.data import Resource, ResourceType
+from dbt_pumpkin.plan import Plan, Action, RelocateResource, InitializeResource
+from exception import PumpkinError
+from resolver import PathResolver
 
 
-class RelocationPlanner:
-    def __init__(self, project_dir: Path, resources: list[Resource]):
-        self.project_dir = project_dir
+class ActionPlanner:
+    def __init__(self, resources: list[Resource]):
         self.resources = resources
+        self._path_resolver = PathResolver()
 
-    def plan_relocations(self) -> Plan:
-        pass
+    def plan_initialize(self) -> Plan:
+        actions: list[Action] = []
+
+        for resource in self.resources:
+            if resource.type == ResourceType.SOURCE:
+                # sources can be initialized only manually
+                continue
+
+            if not resource.config or not resource.config.yaml_path:
+                # TODO: warning
+                continue
+
+            yaml_path = self._path_resolver.resolve(resource.config.yaml_path, resource.name, resource.path)
+            actions.append(InitializeResource(resource.type, resource.name, yaml_path))
+
+        return Plan(actions)
+
+    def plan_relocation(self) -> Plan:
+        actions: list[Action] = []
+
+        sources: dict[str, list[Resource]] = {}
+
+        for resource in self.resources:
+            if resource.type == ResourceType.SOURCE:
+                # sources with the same source_name must be defined in one file
+                sources.setdefault(resource.source_name, []).append(resource)
+                continue
+
+            if not resource.config or not resource.config.yaml_path:
+                # TODO: warning
+                continue
+
+            to_yaml_path = self._path_resolver.resolve(resource.config.yaml_path, resource.name, resource.path)
+            if resource.yaml_path != to_yaml_path:
+                actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
+
+        for source_name, source_tables in sources.items():
+            # make sure all source's resources have exactly the same configuration
+            configs = {r.config for r in source_tables}
+            if len(configs) > 1:
+                # TODO: warning
+                msg = f"Tables in source {source_name} have different configurations: {configs}"
+                raise PumpkinError(msg)
+
+            config = configs.pop()
+
+            if not config or not config.yaml_path:
+                # TODO: warning
+                continue
+
+            yaml_path = source_tables[0].yaml_path
+            to_yaml_path = self._path_resolver.resolve(config.yaml_path, source_name, resource_path=None)
+
+            if yaml_path != to_yaml_path:
+                actions.append(RelocateResource(ResourceType.SOURCE, source_name, yaml_path, to_yaml_path))
+
+        return Plan(actions)

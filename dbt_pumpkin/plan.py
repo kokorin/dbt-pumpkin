@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Resource
+from dbt_pumpkin.data import Resource, ResourceType
 
 
 class Action:
@@ -26,8 +26,9 @@ class Action:
 
 
 @dataclass
-class MoveResource(Action):
-    resource: Resource
+class RelocateResource(Action):
+    resource_type: ResourceType
+    resource_name: str
     from_path: Path
     to_path: Path
 
@@ -35,48 +36,35 @@ class MoveResource(Action):
         return {self.from_path, self.to_path}
 
     def describe(self) -> str:
-        return f"Move {self.resource.unique_id} from {self.from_path} to {self.to_path}"
+        return f"Move {self.resource_type}:{self.resource_name} from {self.from_path} to {self.to_path}"
 
     def apply(self, files: dict[Path, dict]):
         from_yaml_file = files[self.from_path]
-        from_yaml_resources: list = from_yaml_file[self.resource.type.plural_name]
-        from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource.name)
+        from_yaml_resources: list = from_yaml_file[self.resource_type.plural_name]
+        from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource_name)
         from_yaml_resources.remove(from_yaml_resource)
 
         to_file = files.setdefault(self.to_path, {"version": 2})
 
-        to_file.setdefault(self.resource.type.plural_name, []).append(from_yaml_resource)
+        to_file.setdefault(self.resource_type.plural_name, []).append(from_yaml_resource)
 
 
 @dataclass
-class AddResource(Action):
-    resource: Resource
-    to_path: Path
+class InitializeResource(Action):
+    resource_type: ResourceType
+    resource_name: str
+    path: Path
 
     def affected_files(self) -> set[Path]:
-        return {self.to_path}
+        return {self.path}
 
     def describe(self) -> str:
-        return f"Add {self.resource.unique_id} to {self.to_path}"
-
-    def _resource_columns(self) -> list:
-        result = []
-        for column in self.resource.columns:
-            column_yaml = {"name": column.name}
-            if column.data_type:
-                column_yaml["data_type"] = column.data_type
-
-            if column.description:
-                column_yaml["description"] = column.description
-
-            result.append(column_yaml)
-
-        return result
+        return f"Initialize {self.resource_type}:{self.resource_name} at {self.path}"
 
     def apply(self, files: dict[Path, dict]):
-        to_file = files.setdefault(self.to_path, {"version": 2})
-        to_resources = to_file.setdefault(self.resource.type.plural_name, [])
-        to_resources.append({"name": self.resource.name, "columns": self._resource_columns()})
+        to_file = files.setdefault(self.path, {"version": 2})
+        to_resources = to_file.setdefault(self.resource_type.plural_name, [])
+        to_resources.append({"name": self.resource_name, "columns": []})
 
 
 class Plan:
@@ -89,9 +77,11 @@ class Plan:
 
     def apply(self):
         files: dict[Path, dict] = {}
+
         for file in self._affected_files():
             if file.exists():
                 files[file] = self._yaml.load(file)
+
         for action in self.actions:
             action.apply(files)
 
