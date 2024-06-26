@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from dbt_pumpkin.exception import PropertyNotAllowedError, PropertyRequiredError
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -45,7 +47,7 @@ class Table:
 
 @dataclass(frozen=True)
 class ResourceConfig:
-    yaml_path: str | None
+    yaml_path_template: str | None
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,21 @@ class Resource:
     yaml_path: Path | None
     columns: list[Column]
     config: ResourceConfig | None
+
+    def __post_init__(self):
+        # Validate invariants
+        if self.type == ResourceType.SOURCE:
+            if not self.source_name:
+                raise PropertyRequiredError("source_name", self.unique_id)  # noqa: EM101
+            if self.path:
+                raise PropertyNotAllowedError("path", self.unique_id)  # noqa: EM101
+            if not self.yaml_path:
+                raise PropertyRequiredError("yaml_path", self.unique_id)  # noqa: EM101
+        else:
+            if self.source_name is not None:
+                raise PropertyNotAllowedError("source_name", self.unique_id)  # noqa: EM101
+            if not self.path:
+                raise PropertyRequiredError("path", self.unique_id)  # noqa: EM101
 
     def __hash__(self):
         return hash(self.unique_id)

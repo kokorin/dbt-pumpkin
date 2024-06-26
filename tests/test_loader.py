@@ -19,7 +19,7 @@ def loader(selects: list[str] | None = None, excludes: list[str] | None = None) 
 # FIXTURES
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def loader_all() -> ResourceLoader:
     return loader()
 
@@ -75,7 +75,7 @@ def fake_dbt_project_loader(project_yml: dict, project_files: dict[str, Any]) ->
     return ResourceLoader(project_dir=project_dir, profiles_dir=project_dir)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def loader_multiple_roots():
     return fake_dbt_project_loader(
         project_yml={
@@ -161,6 +161,43 @@ def loader_multiple_roots():
     )
 
 
+@pytest.fixture
+def loader_configured_paths():
+    return fake_dbt_project_loader(
+        project_yml={
+            "name": "test_pumpkin",
+            "version": "0.1.0",
+            "profile": "test_pumpkin",
+            "seeds": {"test_pumpkin": {"+dbt-pumpkin-path": "_seeds.yml"}},
+            "models": {"test_pumpkin": {"+dbt-pumpkin-path": "_models.yml"}},
+            "snapshots": {"test_pumpkin": {"+dbt-pumpkin-path": "_snapshots.yml"}},
+            "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "_sources.yml"}},
+        },
+        project_files={
+            "models/customers.sql": "select 1 as id",
+            "seeds/seed_customers.csv": textwrap.dedent("""\
+                 id,name
+                 42,John
+             """),
+            "models/sources.yml": textwrap.dedent("""\
+                 version: 2
+                 sources:
+                   - name: pumpkin
+                     schema: main_sources
+                     tables:
+                       - name: customers
+                       - name: orders
+             """),
+            "snapshots/customers_snapshot.sql": textwrap.dedent("""\
+                 {% snapshot customers_snapshot %}
+                     {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
+                     select * from {{ source('pumpkin', 'customers') }}
+                 {% endsnapshot %}
+             """),
+        },
+    )
+
+
 # TESTS
 
 
@@ -228,18 +265,20 @@ def test_selected_resources(loader_all):
         Resource(
             unique_id=ResourceID("source.my_pumpkin.pumpkin.customers"),
             name="customers",
+            source_name="pumpkin",
             database="dev",
             schema="main_sources",
             identifier="seed_customers",
             type=ResourceType.SOURCE,
-            path=Path("models/staging/_sources.yml"),
+            path=None,
             yaml_path=Path("models/staging/_sources.yml"),
             columns=[],
-            config=ResourceConfig(),
+            config=ResourceConfig(yaml_path_template=None),
         ),
         Resource(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
             name="stg_customers",
+            source_name=None,
             database="dev",
             schema="main",
             identifier="stg_customers",
@@ -247,11 +286,12 @@ def test_selected_resources(loader_all):
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
             columns=[Column(name="id", data_type=None, description="")],
-            config=ResourceConfig(),
+            config=ResourceConfig(yaml_path_template="_schema.yml"),
         ),
         Resource(
             unique_id=ResourceID("seed.my_pumpkin.seed_customers"),
             name="seed_customers",
+            source_name=None,
             database="dev",
             schema="main_sources",
             identifier="seed_customers",
@@ -259,11 +299,12 @@ def test_selected_resources(loader_all):
             path=Path("seeds/sources/seed_customers.csv"),
             yaml_path=None,
             columns=[],
-            config=ResourceConfig(),
+            config=ResourceConfig(yaml_path_template=None),
         ),
         Resource(
             unique_id=ResourceID("snapshot.my_pumpkin.customers_snapshot"),
             name="customers_snapshot",
+            source_name=None,
             database="dev",
             schema="sources_snapshot",
             identifier="customers_snapshot",
@@ -271,7 +312,7 @@ def test_selected_resources(loader_all):
             path=Path("snapshots/sources/customers_snapshot.sql"),
             yaml_path=None,
             columns=[],
-            config=ResourceConfig(),
+            config=ResourceConfig(yaml_path_template=None),
         ),
     ].sort(key=sort_order)
 
@@ -286,8 +327,8 @@ def test_selected_resource_paths_multiroot(loader_multiple_roots):
             "snapshots_extra/extra_customers_snapshot.sql"
         ),
         ResourceID("snapshot.test_pumpkin.customers_snapshot"): Path("snapshots/customers_snapshot.sql"),
-        ResourceID("source.test_pumpkin.pumpkin.customers"): Path("models/sources.yml"),
-        ResourceID("source.test_pumpkin.extra_pumpkin.customers"): Path("models_extra/sources.yml"),
+        ResourceID("source.test_pumpkin.pumpkin.customers"): None,
+        ResourceID("source.test_pumpkin.extra_pumpkin.customers"): None,
     }
 
 
@@ -301,8 +342,22 @@ def test_selected_resource_yaml_paths_multiroot(loader_multiple_roots):
             "snapshots_extra/extra_customers_snapshot.yml"
         ),
         ResourceID("snapshot.test_pumpkin.customers_snapshot"): Path("snapshots/customers_snapshot.yml"),
-        ResourceID("source.test_pumpkin.pumpkin.customers"): None,
-        ResourceID("source.test_pumpkin.extra_pumpkin.customers"): None,
+        ResourceID("source.test_pumpkin.pumpkin.customers"): Path("models/sources.yml"),
+        ResourceID("source.test_pumpkin.extra_pumpkin.customers"): Path("models_extra/sources.yml"),
+    }
+
+
+def test_selected_resource_config(loader_configured_paths):
+    assert {r.unique_id: r.config for r in loader_configured_paths.resources} == {
+        ResourceID(unique_id="source.test_pumpkin.pumpkin.customers"): ResourceConfig(
+            yaml_path_template="_sources.yml"
+        ),
+        ResourceID(unique_id="source.test_pumpkin.pumpkin.orders"): ResourceConfig(yaml_path_template="_sources.yml"),
+        ResourceID(unique_id="seed.test_pumpkin.seed_customers"): ResourceConfig(yaml_path_template="_seeds.yml"),
+        ResourceID(unique_id="snapshot.test_pumpkin.customers_snapshot"): ResourceConfig(
+            yaml_path_template="_snapshots.yml"
+        ),
+        ResourceID(unique_id="model.test_pumpkin.customers"): ResourceConfig(yaml_path_template="_models.yml"),
     }
 
 

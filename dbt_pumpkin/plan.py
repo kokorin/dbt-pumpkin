@@ -2,12 +2,16 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from ruamel.yaml import YAML
+from dbt_pumpkin.data import ResourceType
+from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
+from dbt_pumpkin.storage import Storage
 
-from dbt_pumpkin.data import Resource, ResourceType
 
-
+@dataclass(frozen=True)
 class Action:
+    resource_type: ResourceType
+    resource_name: str
+
     @abstractmethod
     def affected_files(self) -> set[Path]:
         """
@@ -19,16 +23,14 @@ class Action:
         pass
 
     @abstractmethod
-    def apply(self, files: dict[Path, dict]):
+    def execute(self, files: dict[Path, dict]):
         """
         Applies changes to files in memory
         """
 
 
-@dataclass
+@dataclass(frozen=True)
 class RelocateResource(Action):
-    resource_type: ResourceType
-    resource_name: str
     from_path: Path
     to_path: Path
 
@@ -38,7 +40,10 @@ class RelocateResource(Action):
     def describe(self) -> str:
         return f"Move {self.resource_type}:{self.resource_name} from {self.from_path} to {self.to_path}"
 
-    def apply(self, files: dict[Path, dict]):
+    def execute(self, files: dict[Path, dict]):
+        if self.from_path not in files:
+            raise ResourceNotFoundError(self.resource_name, self.from_path)
+
         from_yaml_file = files[self.from_path]
         from_yaml_resources: list = from_yaml_file[self.resource_type.plural_name]
         from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource_name)
@@ -49,11 +54,14 @@ class RelocateResource(Action):
         to_file.setdefault(self.resource_type.plural_name, []).append(from_yaml_resource)
 
 
-@dataclass
+@dataclass(frozen=True)
 class InitializeResource(Action):
-    resource_type: ResourceType
-    resource_name: str
     path: Path
+
+    def __post_init__(self):
+        if self.resource_type == ResourceType.SOURCE:
+            msg = "Sources must be initialized manually"
+            raise PumpkinError(msg)
 
     def affected_files(self) -> set[Path]:
         return {self.path}
@@ -61,7 +69,7 @@ class InitializeResource(Action):
     def describe(self) -> str:
         return f"Initialize {self.resource_type}:{self.resource_name} at {self.path}"
 
-    def apply(self, files: dict[Path, dict]):
+    def execute(self, files: dict[Path, dict]):
         to_file = files.setdefault(self.path, {"version": 2})
         to_resources = to_file.setdefault(self.resource_type.plural_name, [])
         to_resources.append({"name": self.resource_name, "columns": []})
@@ -70,23 +78,17 @@ class InitializeResource(Action):
 class Plan:
     def __init__(self, actions: list[Action]):
         self.actions = actions
-        self._yaml = YAML(typ="safe")
 
     def _affected_files(self) -> set[Path]:
         return {f for a in self.actions for f in a.affected_files()}
 
-    def apply(self):
-        files: dict[Path, dict] = {}
-
-        for file in self._affected_files():
-            if file.exists():
-                files[file] = self._yaml.load(file)
+    def execute(self, storage: Storage):
+        files = storage.load_yaml(self._affected_files())
 
         for action in self.actions:
-            action.apply(files)
+            action.execute(files)
 
-        for file, data in files.items():
-            self._yaml.dump(data, file)
+        storage.save_yaml(files)
 
     def describe(self) -> str:
         return "\n".join(a.describe() for a in self.actions)

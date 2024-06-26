@@ -6,7 +6,6 @@ from dbt_pumpkin.exception import NotRootRelativePathError
 
 
 class PathResolver:
-
     def resolve(self, path_template: str, resource_name: str, resource_path: Path | None = None) -> Path:
         """
         Resolves path template to root-relative path.

@@ -187,30 +187,44 @@ class ResourceLoader:
         for raw_resource in self._raw_resources:
             resource_id = ResourceID(raw_resource.unique_id)
             resource_type = ResourceType(raw_resource.resource_type)
-            yaml_path = None
-            if raw_resource.patch_path:
-                # path_path starts with "project_name://", we just remove it
-                # DBT 1.5 has no manifest.metadata.project_name, so we use resource FQN which starts with project name
-                # patch_path_prefix = self.manifest.metadata.project_name + "://"
-                patch_path_prefix = raw_resource.fqn[0] + "://"
-                fixed_patch_path = raw_resource.patch_path.removeprefix(patch_path_prefix)
-                yaml_path = Path(fixed_patch_path)
+
+            source_name: str = None
+            path: Path = None
+            yaml_path: Path = None
+
+            if resource_type == ResourceType.SOURCE:
+                source_name = raw_resource.source_name
+                yaml_path = Path(raw_resource.original_file_path)
+            else:
+                path = Path(raw_resource.original_file_path)
+                if raw_resource.patch_path:
+                    # path_path starts with "project_name://", we just remove it
+                    # DBT 1.5 has no manifest.metadata.project_name, so we use resource FQN which starts with project name
+                    # patch_path_prefix = self.manifest.metadata.project_name + "://"
+                    patch_path_prefix = raw_resource.fqn[0] + "://"
+                    fixed_patch_path = raw_resource.patch_path.removeprefix(patch_path_prefix)
+                    yaml_path = Path(fixed_patch_path)
+
+            config: ResourceConfig = ResourceConfig(
+                yaml_path_template=raw_resource.config.get("dbt-pumpkin-path", None)
+            )
 
             results.append(
                 Resource(
                     unique_id=resource_id,
                     name=raw_resource.name,
+                    source_name=source_name,
                     database=raw_resource.database,
                     schema=raw_resource.schema,
                     identifier=raw_resource.identifier,
                     type=resource_type,
-                    path=Path(raw_resource.original_file_path) if resource_type != ResourceType.SOURCE else None,
+                    path=path,
                     yaml_path=yaml_path,
                     columns=[
                         Column(name=c.name, data_type=c.data_type, description=c.description)
                         for c in raw_resource.columns.values()
                     ],
-                    config=ResourceConfig(),
+                    config=config,
                 )
             )
 

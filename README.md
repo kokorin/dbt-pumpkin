@@ -16,6 +16,17 @@ hatch run dbt build
 
 # test in one venv
 hatch test
-# test accross different python & dbt versions
+# test across different python & dbt versions
 hatch test --all
+```
+
+## Troubleshooting
+
+Clean envs and caches:
+
+```sh
+hatch env prune
+pip cache purge
+# UV is used by default for hatch-test environments
+uv cache clean
 ```

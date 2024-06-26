@@ -1,8 +1,10 @@
+import copy
 from pathlib import Path
 
 import pytest
 
-from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType
+from dbt_pumpkin.data import ResourceType
+from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
 from dbt_pumpkin.plan import InitializeResource, RelocateResource
 
 
@@ -29,99 +31,129 @@ def files() -> dict[Path, dict]:
                     ],
                 },
             ],
-        }
+        },
+        Path("models/staging/_sources.yml"): {
+            "version": 2,
+            "sources": [
+                {
+                    "name": "ingested",
+                    "tables": [
+                        {"name": "customers", "columns": []},
+                        {"name": "orders", "columns": []},
+                    ],
+                },
+            ],
+        },
     }
 
 
-@pytest.fixture
-def stg_customers() -> Resource:
-    return Resource(
-        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
-        name="stg_customers",
-        database="dev",
-        schema="main",
-        identifier="stg_customers",
-        type=ResourceType.MODEL,
-        path=Path("models/staging/stg_customers.sql"),
-        yaml_path=Path("models/staging/_schema.yml"),
-        columns=[Column(name="id", data_type=None, description="")],
-        config=ResourceConfig(),
-    )
-
-
-@pytest.fixture
-def stg_orders() -> Resource:
-    return Resource(
-        unique_id=ResourceID("model.my_pumpkin.stg_orders"),
-        name="stg_orders",
-        database="dev",
-        schema="main",
-        identifier="stg_orders",
-        type=ResourceType.MODEL,
-        path=Path("models/staging/stg_orders.sql"),
-        yaml_path=None,
-        columns=[
-            Column(name="id", data_type=None, description=""),
-            Column(name="name", data_type="varchar", description=None),
-        ],
-        config=ResourceConfig(),
-    )
-
-
-def test_move_resource(stg_customers, files):
+def test_relocate_resource_to_existing_file(files):
     action = RelocateResource(
-        resource=stg_customers,
+        resource_type=ResourceType.SOURCE,
+        resource_name="ingested",
+        from_path=Path("models/staging/_sources.yml"),
+        to_path=Path("models/staging/_schema.yml"),
+    )
+    expected = copy.deepcopy(files)
+    expected[Path("models/staging/_sources.yml")] = {
+        "version": 2,
+        "sources": [],
+    }
+    expected[Path("models/staging/_schema.yml")]["sources"] = [
+        {
+            "name": "ingested",
+            "tables": [
+                {"name": "customers", "columns": []},
+                {"name": "orders", "columns": []},
+            ],
+        },
+    ]
+
+    action.execute(files)
+
+    assert files == expected
+
+
+def test_relocate_resource_to_new_file(files):
+    action = RelocateResource(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
         from_path=Path("models/staging/_schema.yml"),
         to_path=Path("models/staging/stg_customers.yml"),
     )
-
-    action.apply(files)
-
-    assert files[Path("models/staging/_schema.yml")] == {
-        "version": 2,
-        "models": [
-            {
-                "name": "int_customers",
-                "columns": [
-                    {"name": "id"},
+    (expected := copy.deepcopy(files)).update(
+        {
+            Path("models/staging/_schema.yml"): {
+                "version": 2,
+                "models": [
                     {
-                        "name": "name",
-                    },
+                        "name": "int_customers",
+                        "columns": [
+                            {"name": "id"},
+                            {
+                                "name": "name",
+                            },
+                        ],
+                    }
                 ],
-            }
-        ],
-    }
-
-    assert files[Path("models/staging/stg_customers.yml")] == {
-        "version": 2,
-        "models": [
-            {
-                "name": "stg_customers",
-                "columns": [
-                    {"name": "id", "data_type": "int", "tests": ["not_null", "unique"]},
-                    {"name": "name", "data_type": "varchar", "tests": ["not_null"]},
-                ],
-            }
-        ],
-    }
-
-
-def test_add_resource(stg_orders, files):
-    action = InitializeResource(resource=stg_orders, path=Path("models/staging/stg_orders.yml"))
-
-    action.apply(files)
-
-    assert files[Path("models/staging/stg_orders.yml")] == {
-        "version": 2,
-        "models": [
-            {
-                "name": "stg_orders",
-                "columns": [
+            },
+            Path("models/staging/stg_customers.yml"): {
+                "version": 2,
+                "models": [
                     {
-                        "name": "id",
-                    },
-                    {"name": "name", "data_type": "varchar"},
+                        "name": "stg_customers",
+                        "columns": [
+                            {"name": "id", "data_type": "int", "tests": ["not_null", "unique"]},
+                            {"name": "name", "data_type": "varchar", "tests": ["not_null"]},
+                        ],
+                    }
+                ],
+            },
+        }
+    )
+
+    action.execute(files)
+
+    assert files == expected
+
+
+def test_relocate_resource_error(files):
+    action = RelocateResource(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        from_path=Path("models/staging/non_existent.yml"),
+        to_path=Path("models/staging/stg_customers.yml"),
+    )
+    with pytest.raises(ResourceNotFoundError):
+        action.execute(files)
+
+
+def test_initialize_model_resource(files):
+    action = InitializeResource(
+        resource_type=ResourceType.MODEL, resource_name="stg_orders", path=Path("models/staging/stg_orders.yml")
+    )
+
+    (expected := copy.deepcopy(files)).update(
+        {
+            Path("models/staging/stg_orders.yml"): {
+                "version": 2,
+                "models": [
+                    {
+                        "name": "stg_orders",
+                        "columns": [],
+                    }
                 ],
             }
-        ],
-    }
+        }
+    )
+
+    action.execute(files)
+
+    assert files == expected
+
+
+def test_initialize_source_error():
+    with pytest.raises(PumpkinError):
+        InitializeResource(
+            resource_type=ResourceType.SOURCE, resource_name="stg_orders", path=Path("models/staging/_sources.yml")
+        )

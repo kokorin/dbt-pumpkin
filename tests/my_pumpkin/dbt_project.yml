@@ -20,3 +20,4 @@ snapshots:
 
 models:
   my_pumpkin:
+    +dbt-pumpkin-path: _schema.yml
