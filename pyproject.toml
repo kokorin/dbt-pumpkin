@@ -9,13 +9,25 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
 dependencies = [
-  "ruamel-yaml>=0.17"
+  "ruamel-yaml>=0.17",
+  "click>=8.1.0"
 ]
 
 [project.urls]
 "Source code" = "https://github.com/kokorin/dbt-pumpkin"
 
+[project.scripts]
+dbt-pumpkin = "dbt_pumpkin.cli:main"
+
 [tool.hatch]
+
+[tool.hatch.build]
+exclude = [
+  "/.github",
+  "/tests",
+  "/.pre-commit-config.yaml",
+  "/.gitignore"
+]
 
 [tool.hatch.envs.default]
 dependencies = [

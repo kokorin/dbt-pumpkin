@@ -5,7 +5,7 @@ import pytest
 
 from dbt_pumpkin.data import ResourceType
 from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
-from dbt_pumpkin.plan import InitializeResource, RelocateResource
+from dbt_pumpkin.plan import BootstrapResource, RelocateResource
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ def test_relocate_resource_error(files):
 
 
 def test_initialize_model_resource(files):
-    action = InitializeResource(
+    action = BootstrapResource(
         resource_type=ResourceType.MODEL, resource_name="stg_orders", path=Path("models/staging/stg_orders.yml")
     )
 
@@ -154,6 +154,6 @@ def test_initialize_model_resource(files):
 
 def test_initialize_source_error():
     with pytest.raises(PumpkinError):
-        InitializeResource(
+        BootstrapResource(
             resource_type=ResourceType.SOURCE, resource_name="stg_orders", path=Path("models/staging/_sources.yml")
         )

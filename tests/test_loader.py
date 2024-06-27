@@ -10,10 +10,17 @@ from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType, Table
 from dbt_pumpkin.loader import ResourceLoader
+from dbt_pumpkin.params import ProjectParams, ResourceParams
 
 
 def loader(selects: list[str] | None = None, excludes: list[str] | None = None) -> ResourceLoader:
-    return ResourceLoader("tests/my_pumpkin", "tests/my_pumpkin", selects, excludes)
+    return ResourceLoader(
+        project_params=ProjectParams(
+            "tests/my_pumpkin",
+            "tests/my_pumpkin",
+        ),
+        resource_params=ResourceParams(select=selects, exclude=excludes),
+    )
 
 
 # FIXTURES
@@ -72,7 +79,10 @@ def fake_dbt_project_loader(project_yml: dict, project_files: dict[str, Any]) ->
         path.parent.mkdir(exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
-    return ResourceLoader(project_dir=project_dir, profiles_dir=project_dir)
+    return ResourceLoader(
+        project_params=ProjectParams(project_dir=project_dir, profiles_dir=project_dir),
+        resource_params=ResourceParams(),
+    )
 
 
 @pytest.fixture

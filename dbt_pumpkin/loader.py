@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -22,30 +23,20 @@ from dbt_pumpkin.exception import PumpkinError
 
 if TYPE_CHECKING:
     from dbt_pumpkin.dbt_compat import ModelNode, SeedNode, SnapshotNode, SourceDefinition
+    from dbt_pumpkin.params import ProjectParams, ResourceParams
+
+logger = logging.getLogger(__name__)
 
 
 class ResourceLoader:
-    def __init__(
-        self,
-        project_dir: str | None = None,
-        profiles_dir: str | None = None,
-        selects: list[str] | None = None,
-        excludes: list[str] | None = None,
-    ) -> None:
-        # Project Directory must be set, as we rely on it in some methods
-        self.project_dir = project_dir or os.environ.get("DBT_PROJECT_DIR", None) or str(default_project_dir())
-        self.profiles_dir = profiles_dir
-        self.selects = selects or []
-        self.excludes = excludes or []
+    def __init__(self, project_params: ProjectParams, resource_params: ResourceParams) -> None:
+        self.project_params = project_params
+        self.resource_params = resource_params
         self._yaml = YAML(typ="safe")
 
     @cached_property
     def manifest(self) -> Manifest:
-        args = ["parse"]
-        if self.project_dir:
-            args += ["--project-dir", str(self.project_dir)]
-        if self.profiles_dir:
-            args += ["--profiles-dir", str(self.profiles_dir)]
+        args = ["parse", *self.project_params.to_args()]
 
         res: dbtRunnerResult = dbtRunner().invoke(args)
 
@@ -59,16 +50,7 @@ class ResourceLoader:
         """
         Returns a dictionary mapping resource type to a set of resource identifiers
         """
-        args = ["list"]
-        if self.project_dir:
-            args += ["--project-dir", self.project_dir]
-        if self.profiles_dir:
-            args += ["--profiles-dir", self.profiles_dir]
-        for select in self.selects:
-            args += ["--select", select]
-        for exclude in self.excludes:
-            args += ["--exclude", exclude]
-        args += ["--output", "json"]
+        args = ["list", *self.project_params.to_args(), *self.resource_params.to_args(), "--output", "json"]
 
         res: dbtRunnerResult = dbtRunner(self.manifest).invoke(args)
 
@@ -108,6 +90,10 @@ class ResourceLoader:
             "get_column_types_args": get_column_types_args,
         }
 
+    def locate_project_dir(self) -> Path:
+        # Project Directory must be set, as we rely on it in some methods
+        return Path(self.project_params.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir())
+
     def _create_pumpkin_project(self) -> Path:
         """
         Creates fake DBT project with some important configurations copied to "vars" section.
@@ -119,7 +105,7 @@ class ResourceLoader:
             msg = f"Macros directory is not found or doesn't exist: {src_macros_path}"
             raise PumpkinError(msg)
 
-        project_yml_path = Path(self.project_dir) / "dbt_project.yml"
+        project_yml_path = self.locate_project_dir() / "dbt_project.yml"
 
         if not project_yml_path.exists() or not project_yml_path.is_file():
             msg = f"dbt_project.yml is not found or doesn't exist: {project_yml_path}"
@@ -145,9 +131,9 @@ class ResourceLoader:
 
     def _run_operation(self, operation_name: str) -> dict:
         pumpkin_dir = self._create_pumpkin_project()
-        args = ["run-operation", operation_name, "--project-dir", str(pumpkin_dir)]
-        if self.profiles_dir:
-            args += ["--profiles-dir", self.profiles_dir]
+        project_params = self.project_params.with_project_dir(str(pumpkin_dir))
+
+        args = ["run-operation", operation_name, *project_params.to_args()]
 
         jinja_log_messages: list[str] = []
 
@@ -158,7 +144,7 @@ class ResourceLoader:
         res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)
 
         if not res.success:
-            raise res.exception
+            logger.exception("Failed to load resources", exc_info=res.exception)
 
         if not jinja_log_messages:
             msg = f"No response retrieved from operation {operation_name}"
