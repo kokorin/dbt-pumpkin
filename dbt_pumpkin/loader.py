@@ -138,7 +138,7 @@ class ResourceLoader:
         jinja_log_messages: list[str] = []
 
         def event_callback(event: EventMsg):
-            if event.info.name == "JinjaLogInfo":
+            if event.info.name in {"JinjaLogInfo", "JinjaLogDebug"}:
                 jinja_log_messages.append(event.info.msg)
 
         res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)

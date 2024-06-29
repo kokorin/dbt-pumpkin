@@ -2,6 +2,7 @@ import logging
 
 import click
 
+from dbt_pumpkin.dbt_compat import hijack_dbt_logs
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 from dbt_pumpkin.pumpkin import Pumpkin
 
@@ -20,9 +21,7 @@ class P:
 def set_up_logging(debug):
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(level=level)
-    from dbt.logger import log_manager
-
-    log_manager.disable()
+    hijack_dbt_logs()
 
 
 @click.group

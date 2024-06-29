@@ -17,5 +17,5 @@
             {% do result.update({id: columns}) %}
         {% endif %}
     {% endfor %}
-    {{ log(tojson(result), info=True) }}
+    {{ log(tojson(result)) }}
 {% endmacro %}
