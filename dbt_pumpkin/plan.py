@@ -55,7 +55,7 @@ class RelocateResource(Action):
 
 
 @dataclass(frozen=True)
-class InitializeResource(Action):
+class BootstrapResource(Action):
     path: Path
 
     def __post_init__(self):
