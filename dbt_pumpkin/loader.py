@@ -33,9 +33,8 @@ class ResourceLoader:
     def __init__(self, project_params: ProjectParams, resource_params: ResourceParams) -> None:
         self._project_params = project_params
         self._resource_params = resource_params
-        self._manifest:Manifest = None
+        self._manifest: Manifest = None
         self._yaml = YAML(typ="safe")
-
 
     def _do_load_manifest(self) -> Manifest:
         logger.debug("Parsing manifest")
@@ -49,11 +48,12 @@ class ResourceLoader:
             logger.error("Parsing manifest failed, dbt exception %s", res.exception)
             raise res.exception
 
-        result:Manifest = res.result
+        result: Manifest = res.result
 
         logger.info("Manifest parsed. Sources: %s, Nodes: %s", len(result.sources), len(result.nodes))
 
         return result
+
     def load_manifest(self) -> Manifest:
         if not self._manifest:
             self._manifest = self._do_load_manifest()
@@ -119,7 +119,9 @@ class ResourceLoader:
 
     def locate_project_dir(self) -> Path:
         # Project Directory must be set, as we rely on it in some methods
-        return Path(self._project_params.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir())
+        return Path(
+            self._project_params.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir()
+        )
 
     def _create_pumpkin_project(self) -> Path:
         """
