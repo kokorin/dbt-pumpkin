@@ -72,7 +72,7 @@ def prepare_monkey_patches() -> list[MonkeyPatch]:
 
 def hijack_dbt_logs():
     for patch in prepare_monkey_patches():
-        patch.obj.__setattr__(patch.name, patch.value)
+        setattr(patch.obj, patch.name, patch.value)
 
 
 __all__ = [
