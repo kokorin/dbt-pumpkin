@@ -9,9 +9,9 @@ from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.nodes import ModelNode, SeedNode, SnapshotNode, SourceDefinition
 
 try:
-    from dbt_common.events.base_types import EventMsg
+    from dbt_common.events.base_types import EventMsg, EventLevel
 except ImportError:
-    from dbt.events.base_types import EventMsg
+    from dbt.events.base_types import EventMsg, EventLevel
 
 try:
     from dbt.artifacts.resources.v1.components import ColumnInfo
@@ -20,49 +20,32 @@ except ImportError:
 
 
 def hijack_dbt_logs(logger: Logger | None = None):
-    logger = logger or getLogger(__name__)
 
     try:
-        from dbt_common.events.base_types import msg_from_base_event
+        from dbt_common.events.event_manager import EventManager
+        from dbt_common.events.functions import fire_event
     except ImportError:
-        from dbt.events.base_types import msg_from_base_event
+        from dbt.events.eventmgr import EventManager
+        from dbt.events.functions import fire_event
 
-    class HijackingEventManager:
-        def __init__(self):
-            self.loggers = []
-            self.callbacks = []
-            self.invocation_id = str(uuid4())
+    from dbt.task.list import ListTask
+    from dbt.events.types import ListCmdOut
 
-        def add_logger(self, *args) -> None:
-            pass
+    def event_manager_add_logger(self, *args) -> None:
+        pass
 
-        def add_callback(self, callback) -> None:
-            self.callbacks.append(callback)
+    def list_task_output_results(self, results):
+        """
+        Original method uses print() method and hence isn't extensible
+        """
 
-        def fire_event(self, e, level=None) -> None:
-            msg = msg_from_base_event(e, level=level)
+        for result in results:
+            self.node_results.append(result)
+            fire_event(ListCmdOut(msg=result), level=EventLevel.DEBUG)
+        return self.node_results
 
-            for callback in self.callbacks:
-                callback(msg)
-
-            level = getLevelName(msg.info.level.upper())
-            logger.log(level, msg.info.msg)
-
-        def flush(self) -> None:
-            pass
-
-    try:
-        import dbt_common.events.event_manager
-        import dbt_common.events.event_manager_client
-
-        dbt_common.events.event_manager.EventManager = HijackingEventManager
-        dbt_common.events.event_manager_client._EVENT_MANAGER = HijackingEventManager()  # noqa: SLF001
-    except ImportError:
-        import dbt.events.eventmgr
-        import dbt.events.functions
-
-        dbt.events.eventmgr.EventManager = HijackingEventManager
-        dbt.events.functions.EVENT_MANAGER = HijackingEventManager()
+    EventManager.add_logger = event_manager_add_logger
+    ListTask.output_results = list_task_output_results
 
 
 __all__ = [

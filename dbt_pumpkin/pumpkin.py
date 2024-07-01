@@ -5,7 +5,7 @@ from dbt_pumpkin.params import ProjectParams, ResourceParams
 from dbt_pumpkin.planner import ActionPlanner, BootstrapPlanner, RelocationPlanner
 from dbt_pumpkin.storage import DiskStorage
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class Pumpkin:

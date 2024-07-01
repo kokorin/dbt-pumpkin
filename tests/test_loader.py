@@ -212,10 +212,11 @@ def loader_configured_paths():
 
 
 def test_manifest(loader_all):
-    assert loader_all.manifest
+    manifest = loader_all.load_manifest()
+    assert manifest
 
-    assert loader_all.manifest.nodes
-    assert loader_all.manifest.sources
+    assert manifest.nodes
+    assert manifest.sources
 
 
 def test_selected_resource_ids(loader_all):
