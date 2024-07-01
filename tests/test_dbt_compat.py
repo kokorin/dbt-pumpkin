@@ -31,28 +31,28 @@ def test_load_manifest(monkeypatch: MonkeyPatch):
 
 
 def test_resource_ids(monkeypatch: MonkeyPatch):
-    not_patched = new_loader().resource_ids
+    not_patched = new_loader().select_resource_ids()
     assert not_patched
 
     with monkeypatch.context() as m:
         for patch in prepare_monkey_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
-        patched = new_loader().resource_ids
+        patched = new_loader().select_resource_ids()
 
     assert patched
     assert not_patched == patched
 
 
 def test_resource_tables(monkeypatch: MonkeyPatch):
-    not_patched = new_loader().resource_tables
+    not_patched = new_loader().lookup_tables()
     assert not_patched
 
     with monkeypatch.context() as m:
         for patch in prepare_monkey_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
-        patched = new_loader().resource_tables
+        patched = new_loader().lookup_tables()
 
     assert patched
     assert set(not_patched) == set(patched)

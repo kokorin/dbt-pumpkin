@@ -16,9 +16,10 @@ class Pumpkin:
     def _plan_and_execute(self, planner: ActionPlanner, *, dry_run: bool):
         logger.info("Loading resource")
         loader = ResourceLoader(self.project_params, self.resource_params)
+        resources = loader.select_resources()
 
         logger.info("Planning actions")
-        plan = planner.plan(loader.resources)
+        plan = planner.plan(resources)
 
         storage = DiskStorage(loader.locate_project_dir(), read_only=dry_run)
         logger.info("Executing actions")

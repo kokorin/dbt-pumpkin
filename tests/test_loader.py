@@ -220,7 +220,7 @@ def test_manifest(loader_all):
 
 
 def test_selected_resource_ids(loader_all):
-    assert loader_all.resource_ids == {
+    assert loader_all.select_resource_ids() == {
         ResourceType.SEED: {
             ResourceID("seed.my_pumpkin.seed_customers"),
         },
@@ -237,7 +237,7 @@ def test_selected_resource_ids(loader_all):
 
 
 def test_selected_resource_ids_only_sources(loader_only_sources: ResourceLoader):
-    assert loader_only_sources.resource_ids == {
+    assert loader_only_sources.select_resource_ids() == {
         ResourceType.SOURCE: {
             ResourceID("source.my_pumpkin.pumpkin.customers"),
         }
@@ -245,7 +245,7 @@ def test_selected_resource_ids_only_sources(loader_only_sources: ResourceLoader)
 
 
 def test_selected_resource_ids_only_seeds(loader_only_seeds: ResourceLoader):
-    assert loader_only_seeds.resource_ids == {
+    assert loader_only_seeds.select_resource_ids() == {
         ResourceType.SEED: {
             ResourceID("seed.my_pumpkin.seed_customers"),
         },
@@ -253,7 +253,7 @@ def test_selected_resource_ids_only_seeds(loader_only_seeds: ResourceLoader):
 
 
 def test_selected_resource_ids_only_snapshots(loader_only_snapshots: ResourceLoader):
-    assert loader_only_snapshots.resource_ids == {
+    assert loader_only_snapshots.select_resource_ids() == {
         ResourceType.SNAPSHOT: {
             ResourceID("snapshot.my_pumpkin.customers_snapshot"),
         },
@@ -261,7 +261,7 @@ def test_selected_resource_ids_only_snapshots(loader_only_snapshots: ResourceLoa
 
 
 def test_selected_resource_ids_only_models(loader_only_models: ResourceLoader):
-    assert loader_only_models.resource_ids == {
+    assert loader_only_models.select_resource_ids() == {
         ResourceType.MODEL: {
             ResourceID("model.my_pumpkin.stg_customers"),
         },
@@ -272,7 +272,7 @@ def test_selected_resources(loader_all):
     def sort_order(res: Resource):
         return str(res.unique_id)
 
-    assert loader_all.resources.sort(key=sort_order) == [
+    assert loader_all.select_resources().sort(key=sort_order) == [
         Resource(
             unique_id=ResourceID("source.my_pumpkin.pumpkin.customers"),
             name="customers",
@@ -329,7 +329,7 @@ def test_selected_resources(loader_all):
 
 
 def test_selected_resource_paths_multiroot(loader_multiple_roots):
-    assert {r.unique_id: r.path for r in loader_multiple_roots.resources} == {
+    assert {r.unique_id: r.path for r in loader_multiple_roots.select_resources()} == {
         ResourceID("model.test_pumpkin.customers"): Path("models/customers.sql"),
         ResourceID("model.test_pumpkin.extra_customers"): Path("models_extra/extra_customers.sql"),
         ResourceID("seed.test_pumpkin.seed_customers"): Path("seeds/seed_customers.csv"),
@@ -344,7 +344,7 @@ def test_selected_resource_paths_multiroot(loader_multiple_roots):
 
 
 def test_selected_resource_yaml_paths_multiroot(loader_multiple_roots):
-    assert {r.unique_id: r.yaml_path for r in loader_multiple_roots.resources} == {
+    assert {r.unique_id: r.yaml_path for r in loader_multiple_roots.select_resources()} == {
         ResourceID("model.test_pumpkin.customers"): Path("models/customers.yml"),
         ResourceID("model.test_pumpkin.extra_customers"): Path("models_extra/extra_customers.yml"),
         ResourceID("seed.test_pumpkin.seed_customers"): Path("seeds/seed_customers.yml"),
@@ -359,7 +359,7 @@ def test_selected_resource_yaml_paths_multiroot(loader_multiple_roots):
 
 
 def test_selected_resource_config(loader_configured_paths):
-    assert {r.unique_id: r.config for r in loader_configured_paths.resources} == {
+    assert {r.unique_id: r.config for r in loader_configured_paths.select_resources()} == {
         ResourceID(unique_id="source.test_pumpkin.pumpkin.customers"): ResourceConfig(
             yaml_path_template="_sources.yml"
         ),
@@ -373,11 +373,11 @@ def test_selected_resource_config(loader_configured_paths):
 
 
 def test_selected_resources_total_count(loader_all):
-    assert sum(len(ids) for ids in loader_all.resource_ids.values()) == len(loader_all.resources)
+    assert sum(len(ids) for ids in loader_all.select_resource_ids().values()) == len(loader_all.select_resources())
 
 
 def test_selected_resource_tables(loader_all):
-    assert set(loader_all.resource_tables) == {
+    assert set(loader_all.lookup_tables()) == {
         Table(
             resource_id=ResourceID("seed.my_pumpkin.seed_customers"),
             columns=[
