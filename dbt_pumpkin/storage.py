@@ -1,8 +1,11 @@
+import logging
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
 from ruamel.yaml import YAML
+
+logger = logging.getLogger(__name__)
 
 
 class Storage:
@@ -22,13 +25,26 @@ class DiskStorage(Storage):
         self._yaml = YAML(typ="safe")
 
     def load_yaml(self, files: set[Path]) -> dict[Path, Any]:
-        return {file: self._yaml.load(self._root_dir / file) for file in files if file.exists()}
+        result: dict[Path, Any] = {}
+
+        for file in files:
+            resolved_file = self._root_dir / file
+            if not resolved_file.exists():
+                logger.debug("File doesn't exist, skipping: %s", resolved_file)
+                continue
+
+            logger.debug("Loading file: %s", resolved_file)
+            result[file] = self._yaml.load(resolved_file)
+
+        return result
 
     def save_yaml(self, files: dict[Path, Any]):
         if self._read_only:
             return
 
         for file, content in files.items():
-            file_path = self._root_dir / file
-            file_path.parent.mkdir(exist_ok=True)
-            self._yaml.dump(content, file_path)
+            resolved_file = self._root_dir / file
+            logger.debug("Saving file: %s", resolved_file)
+            resolved_file = self._root_dir / file
+            resolved_file.parent.mkdir(exist_ok=True)
+            self._yaml.dump(content, resolved_file)

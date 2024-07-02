@@ -1,3 +1,4 @@
+import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -5,6 +6,8 @@ from pathlib import Path
 from dbt_pumpkin.data import ResourceType
 from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
 from dbt_pumpkin.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -60,14 +63,14 @@ class BootstrapResource(Action):
 
     def __post_init__(self):
         if self.resource_type == ResourceType.SOURCE:
-            msg = "Sources must be initialized manually"
+            msg = "Sources must be bootstrapped manually"
             raise PumpkinError(msg)
 
     def affected_files(self) -> set[Path]:
         return {self.path}
 
     def describe(self) -> str:
-        return f"Initialize {self.resource_type}:{self.resource_name} at {self.path}"
+        return f"Bootstrap {self.resource_type}:{self.resource_name} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         to_file = files.setdefault(self.path, {"version": 2})
@@ -83,9 +86,13 @@ class Plan:
         return {f for a in self.actions for f in a.affected_files()}
 
     def execute(self, storage: Storage):
-        files = storage.load_yaml(self._affected_files())
+        affected_files = self._affected_files()
+        logger.info("Files affected by plan: %s", len(affected_files))
 
-        for action in self.actions:
+        files = storage.load_yaml(affected_files)
+
+        for index, action in enumerate(self.actions):
+            logger.info("Action %s: %s", index + 1, action.describe())
             action.execute(files)
 
         storage.save_yaml(files)
