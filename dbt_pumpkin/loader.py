@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from ruamel.yaml import YAML
 
@@ -225,7 +225,9 @@ class ResourceLoader:
 
         return pumpkin_dir
 
-    def _run_operation(self, operation_name: str, project_vars: dict[str, any]) -> dict:
+    def _run_operation(
+        self, operation_name: str, project_vars: dict[str, any], result_callback: Callable[[dict], None]
+    ):
         pumpkin_dir = self._create_pumpkin_project(project_vars)
 
         project_params = self._project_params.with_project_dir(str(pumpkin_dir))
@@ -233,45 +235,49 @@ class ResourceLoader:
         args = ["run-operation", operation_name, *project_params.to_args()]
         logger.debug("Command line: %s", args)
 
-        jinja_log_messages: list[str] = []
-
         def event_callback(event: EventMsg):
             if event.info.name in {"JinjaLogInfo", "JinjaLogDebug"}:
-                jinja_log_messages.append(event.info.msg)
+                try:
+                    potential_result = json.loads(str(event.info.msg))
+                    if operation_name in potential_result:
+                        result_callback(potential_result[operation_name])
+                    else:
+                        logger.debug("Ignoring potential result: no '%s' key: %s", operation_name, potential_result)
+                except ValueError:
+                    logger.exception("Failed to parse potential result %s", event.info.msg)
 
         res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)
 
         if not res.success:
-            logger.exception("Failed to load resources", exc_info=res.exception)
-
-        if not jinja_log_messages:
-            msg = f"No response retrieved from operation {operation_name}"
+            msg = f"Run operation failure: {operation_name}. Exception: {res.exception}"
             raise PumpkinError(msg)
-
-        return json.loads(jinja_log_messages[0])
 
     def _do_lookup_tables(self) -> list[Table]:
         logger.info("Looking up tables")
 
+        raw_resources = self._raw_resources
         project_vars = {
             "get_column_types_args": {
                 str(resource.unique_id): [resource.database, resource.schema, resource.identifier]
-                for resource in self._raw_resources
+                for resource in raw_resources
             },
         }
 
-        column_types_response = self._run_operation("get_column_types", project_vars)
-        result = [
-            Table(
-                resource_id=ResourceID(res_id),
-                columns=[Column(name=c["name"], data_type=c["data_type"], description=None) for c in columns],
+        tables: list[Table] = []
+
+        def on_result(result: dict):
+            table = Table(
+                resource_id=ResourceID(result["resource_id"]),
+                columns=[Column(name=c["name"], data_type=c["data_type"], description=None) for c in result["columns"]],
             )
-            for res_id, columns in column_types_response.items()
-        ]
+            tables.append(table)
+            logger.info("Looked up %s / %s: %s", len(tables), len(raw_resources), table.resource_id)
 
-        logger.info("Found %s tables", len(result))
+        self._run_operation("get_column_types", project_vars, on_result)
 
-        return result
+        logger.info("Found %s tables", len(tables))
+
+        return tables
 
     def lookup_tables(self):
         if self._tables is None:
