@@ -1,5 +1,5 @@
-{% macro get_column_types() %}
-    {% for resource_id, database_schema_identifier in var('get_column_types_args').items() %}
+{% macro lookup_tables() %}
+    {% for resource_id, database_schema_identifier in var('lookup_tables_args').items() %}
         {% set database, schema, identifier = database_schema_identifier %}
         {% set relation = adapter.get_relation(database, schema, identifier) %}
 
@@ -22,6 +22,6 @@
             {% do result.update({'columns': columns}) %}
         {% endif %}
 
-        {{ log(tojson( {'get_column_types': result} )) }}
+        {{ log(tojson( {'lookup_tables': result} )) }}
     {% endfor %}
 {% endmacro %}

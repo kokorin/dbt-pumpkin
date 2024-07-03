@@ -36,6 +36,7 @@ class ResourceLoader:
         self._resource_ids: dict[ResourceType, set[ResourceID]] = None
         self._resources: list[Resource] = None
         self._tables: list[Table] = None
+        self._adapter_name: str = None
         self._yaml = YAML(typ="safe")
 
     def _do_load_manifest(self) -> Manifest:
@@ -226,7 +227,7 @@ class ResourceLoader:
         return pumpkin_dir
 
     def _run_operation(
-        self, operation_name: str, project_vars: dict[str, any], result_callback: Callable[[dict], None]
+        self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]
     ):
         pumpkin_dir = self._create_pumpkin_project(project_vars)
 
@@ -257,7 +258,7 @@ class ResourceLoader:
 
         raw_resources = self._raw_resources
         project_vars = {
-            "get_column_types_args": {
+            "lookup_tables_args": {
                 str(resource.unique_id): [resource.database, resource.schema, resource.identifier]
                 for resource in raw_resources
             },
@@ -273,7 +274,7 @@ class ResourceLoader:
             tables.append(table)
             logger.info("Looked up %s / %s: %s", len(tables), len(raw_resources), table.resource_id)
 
-        self._run_operation("get_column_types", project_vars, on_result)
+        self._run_operation("lookup_tables", project_vars, on_result)
 
         logger.info("Found %s tables", len(tables))
 
@@ -283,3 +284,26 @@ class ResourceLoader:
         if self._tables is None:
             self._tables = self._do_lookup_tables()
         return self._tables
+
+    def _do_resolve_adapter_name(self) -> str:
+        logger.info("Resolving adapter name")
+
+        adapter_names: list[str] = []
+
+        def on_result(result: str):
+            adapter_names.append(result)
+            logger.debug("Resolved adapter name: %s", result)
+
+        self._run_operation("resolve_adapter_name", project_vars=None, result_callback=on_result)
+
+        if len(adapter_names) != 1:
+            msg = f"Expected exactly 1 adapter name, got: {adapter_names}"
+            raise PumpkinError(msg)
+
+        return adapter_names[0]
+
+    def resolve_adapter_name(self) -> str:
+        if self._adapter_name is None:
+            self._adapter_name = self._do_resolve_adapter_name()
+
+        return self._adapter_name
