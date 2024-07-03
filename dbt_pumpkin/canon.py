@@ -5,18 +5,18 @@ from dbt_pumpkin.exception import NamingCanonError
 
 
 class NamingCanon(ABC):
-    _convertable_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+    _canonizable_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
-    def _ensure_canonizeable(self, name: str):
-        if not self._convertable_re.match(name):
-            raise NamingCanonError(name)
+    def can_canonize(self, name:str) -> bool:
+        return self._canonizable_re.match(name) is not None
 
     @abstractmethod
     def _do_canonize(self, name: str) -> str:
         pass
 
     def canonize(self, name: str) -> str:
-        self._ensure_canonizeable(name)
+        if not self.can_canonize(name):
+            raise NamingCanonError(name)
         return self._do_canonize(name)
 
 

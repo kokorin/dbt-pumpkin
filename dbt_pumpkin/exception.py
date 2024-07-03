@@ -18,14 +18,14 @@ class ResourceNotFoundError(PumpkinError):
 
 
 class PropertyRequiredError(PumpkinError):
-    def __init__(self, property_name, unique_id):
-        msg = f"Property {property_name} is required for resource {unique_id}"
+    def __init__(self, property_name, details):
+        msg = f"Property {property_name} is required: {details}"
         super().__init__(msg)
 
 
 class PropertyNotAllowedError(PumpkinError):
-    def __init__(self, property_name, unique_id):
-        msg = f"Property  {property_name} is not allowed for resource {unique_id}"
+    def __init__(self, property_name, details):
+        msg = f"Property  {property_name} is not allowed: {details}"
         super().__init__(msg)
 
 
