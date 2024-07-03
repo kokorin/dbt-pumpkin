@@ -411,3 +411,7 @@ def test_selected_resource_tables(loader_all):
             ],
         ),
     }
+
+
+def test_resolve_adapter_name(loader_all):
+    assert loader_all.resolve_adapter_name() == "duckdb"
