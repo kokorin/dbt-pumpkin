@@ -1,6 +1,6 @@
 import pytest
-from canon import LowercaseCanon, UppercaseCanon
-from exception import NamingCanonError
+from dbt_pumpkin.canon import LowercaseCanon, UppercaseCanon
+from dbt_pumpkin.exception import NamingCanonError
 
 
 def test_uppercase_canon():
