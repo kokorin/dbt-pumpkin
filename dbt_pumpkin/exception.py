@@ -27,3 +27,9 @@ class PropertyNotAllowedError(PumpkinError):
     def __init__(self, property_name, unique_id):
         msg = f"Property  {property_name} is not allowed for resource {unique_id}"
         super().__init__(msg)
+
+
+class NamingCanonError(PumpkinError):
+    def __init__(self, name):
+        msg = f"Can't canonize name: '{name}'"
+        super().__init__(msg)

@@ -303,6 +303,7 @@ class ResourceLoader:
         return adapter_names[0]
 
     def resolve_adapter_name(self) -> str:
+        # Do not forget to add adapter-specific macro to resolve_adapter_name.sql
         if self._adapter_name is None:
             self._adapter_name = self._do_resolve_adapter_name()
 
