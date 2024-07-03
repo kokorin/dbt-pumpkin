@@ -1,4 +1,5 @@
 import pytest
+
 from dbt_pumpkin.canon import LowercaseCanon, UppercaseCanon
 from dbt_pumpkin.exception import NamingCanonError
 
