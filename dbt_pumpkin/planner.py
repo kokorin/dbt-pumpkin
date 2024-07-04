@@ -2,10 +2,17 @@ import logging
 from abc import ABC, abstractmethod
 
 from dbt_pumpkin.canon import NamingCanon
-from dbt_pumpkin.data import Resource, ResourceType, Table, ResourceColumn
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceType, Table
 from dbt_pumpkin.exception import PumpkinError
-from dbt_pumpkin.plan import Action, BootstrapResource, Plan, RelocateResource, AddResourceColumn, UpdateResourceColumn, \
-    DeleteResourceColumn
+from dbt_pumpkin.plan import (
+    Action,
+    AddResourceColumn,
+    BootstrapResource,
+    DeleteResourceColumn,
+    Plan,
+    RelocateResource,
+    UpdateResourceColumn,
+)
 from dbt_pumpkin.resolver import PathResolver
 
 logger = logging.getLogger(__name__)
@@ -18,7 +25,6 @@ class ActionPlanner(ABC):
 
 
 class BootstrapPlanner(ActionPlanner):
-
     def __init__(self, resources: list[Resource]):
         self._resources = resources
 
@@ -36,8 +42,11 @@ class BootstrapPlanner(ActionPlanner):
                 continue
 
             if not resource.config or not resource.config.yaml_path_template:
-                logger.warning("Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
-                               resource.type, resource.name)
+                logger.warning(
+                    "Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
+                    resource.type,
+                    resource.name,
+                )
                 continue
 
             yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
@@ -47,7 +56,6 @@ class BootstrapPlanner(ActionPlanner):
 
 
 class RelocationPlanner(ActionPlanner):
-
     def __init__(self, resources: list[Resource]):
         self._resources = resources
 
@@ -64,13 +72,19 @@ class RelocationPlanner(ActionPlanner):
                 continue
 
             if not resource.yaml_path:
-                logger.warning("Resource %s %s has no YAML schema definition, run bootstrap command instead",
-                               resource.type, resource.name)
+                logger.warning(
+                    "Resource %s %s has no YAML schema definition, run bootstrap command instead",
+                    resource.type,
+                    resource.name,
+                )
                 continue
 
             if not resource.config or not resource.config.yaml_path_template:
-                logger.warning("Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
-                               resource.type, resource.name)
+                logger.warning(
+                    "Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
+                    resource.type,
+                    resource.name,
+                )
                 continue
 
             to_yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
@@ -87,8 +101,9 @@ class RelocationPlanner(ActionPlanner):
             config = configs.pop()
 
             if not config or not config.yaml_path_template:
-                logger.warning("Source %s has no YAML path defined, add dbt-pumpkin-path configuration property",
-                               source_name)
+                logger.warning(
+                    "Source %s has no YAML path defined, add dbt-pumpkin-path configuration property", source_name
+                )
                 continue
 
             yaml_path = source_tables[0].yaml_path
@@ -101,7 +116,6 @@ class RelocationPlanner(ActionPlanner):
 
 
 class SynchronizationPlanner(ActionPlanner):
-
     def __init__(self, resources: list[Resource], tables: list[Table], naming_canon: NamingCanon):
         self._resources = resources
         self._tables = tables
@@ -110,7 +124,7 @@ class SynchronizationPlanner(ActionPlanner):
     def _resource_plan(self, resource: Resource, table: Table) -> list[Action]:
         resource_column_by_table_column_name: dict[str, ResourceColumn] = {}
         table_column_name_by_resource_column_name: dict[str, str] = {}
-        resource_column_names:list[str] = []
+        resource_column_names: list[str] = []
 
         proceed = True
         for resource_column in resource.columns:
@@ -120,16 +134,21 @@ class SynchronizationPlanner(ActionPlanner):
             elif self._naming_canon.can_canonize(resource_column.name):
                 table_column_name = self._naming_canon.canonize(resource_column.name)
             else:
-                logger.warning("Resource %s column '%s' should have 'quote' property set to True",
-                               resource.unique_id, resource_column.name)
+                logger.warning(
+                    "Resource %s column '%s' should have 'quote' property set to True",
+                    resource.unique_id,
+                    resource_column.name,
+                )
                 proceed = False
                 break
 
             ambiguous_column = resource_column_by_table_column_name.get(table_column_name)
             if ambiguous_column:
                 logger.warning(
-                    "Resource %s columns '%s' and '%s' are ambiguous. Set 'quote' property set to True or rename",
-                    resource.unique_id, ambiguous_column.name, resource_column.name
+                    "Resource %s columns '%s' and '%s' are ambiguous. Set 'quote' property to True or rename",
+                    resource.unique_id,
+                    ambiguous_column.name,
+                    resource_column.name,
                 )
                 proceed = False
                 break
@@ -147,45 +166,51 @@ class SynchronizationPlanner(ActionPlanner):
 
         for table_column in table.columns:
             if table_column.name not in resource_column_by_table_column_name:
-                result.append(AddResourceColumn(
-                    resource_type=resource.type,
-                    resource_name=resource.name,
-                    path=resource.yaml_path,
-                    source_name=resource.source_name,
-                    column_name=table_column.name,
-                    column_quote= not self._naming_canon.can_canonize(table_column.name),
-                    column_type=table_column.data_type
-                ))
+                result.append(
+                    AddResourceColumn(
+                        resource_type=resource.type,
+                        resource_name=resource.name,
+                        path=resource.yaml_path,
+                        source_name=resource.source_name,
+                        column_name=table_column.name,
+                        column_quote=not self._naming_canon.can_canonize(table_column.name),
+                        column_type=table_column.data_type,
+                    )
+                )
                 continue
 
             resource_column = resource_column_by_table_column_name[table_column.name]
             if table_column.data_type != resource_column.data_type:
-                result.append(UpdateResourceColumn(
-                    resource_type=resource.type,
-                    resource_name=resource.name,
-                    path=resource.yaml_path,
-                    source_name=resource.source_name,
-                    # Careful, columns in YAML may be named non-canonically.
-                    # We must provide column_name as it is in YAML
-                    column_name=resource_column.name,
-                    column_type=table_column.data_type
-                ))
+                result.append(
+                    UpdateResourceColumn(
+                        resource_type=resource.type,
+                        resource_name=resource.name,
+                        path=resource.yaml_path,
+                        source_name=resource.source_name,
+                        # Careful, columns in YAML may be named non-canonically.
+                        # We must provide column_name as it is in YAML
+                        column_name=resource_column.name,
+                        column_type=table_column.data_type,
+                    )
+                )
 
         table_column_names = {c.name for c in table.columns}
         for resource_column in resource.columns:
             table_column_name = table_column_name_by_resource_column_name.get(resource_column.name)
             if table_column_name not in table_column_names:
-                result.append(DeleteResourceColumn(
-                    resource_type=resource.type,
-                    resource_name=resource.name,
-                    path=resource.yaml_path,
-                    source_name=resource.source_name,
-                    # Careful, columns in YAML may be named non-canonically.
-                    # We must provide column_name as it is in YAML
-                    column_name=resource_column.name
-                ))
+                result.append(
+                    DeleteResourceColumn(
+                        resource_type=resource.type,
+                        resource_name=resource.name,
+                        path=resource.yaml_path,
+                        source_name=resource.source_name,
+                        # Careful, columns in YAML may be named non-canonically.
+                        # We must provide column_name as it is in YAML
+                        column_name=resource_column.name,
+                    )
+                )
 
-        !TODO reorder!
+        # !TODO reorder!
 
         return result
 

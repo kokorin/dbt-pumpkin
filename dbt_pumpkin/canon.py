@@ -7,7 +7,7 @@ from dbt_pumpkin.exception import NamingCanonError
 class NamingCanon(ABC):
     _canonizable_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
-    def can_canonize(self, name:str) -> bool:
+    def can_canonize(self, name: str) -> bool:
         return self._canonizable_re.match(name) is not None
 
     @abstractmethod

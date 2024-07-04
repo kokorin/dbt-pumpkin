@@ -31,11 +31,11 @@ class ResourceType(Enum):
 
 @dataclass(frozen=True)
 class TableColumn:
-    name:str
-    short_type:str
+    name: str
+    short_type: str
     data_type: str
-    is_numeric:bool
-    is_char:bool
+    is_numeric: bool
+    is_char: bool
     description: str | None
 
 
@@ -46,7 +46,7 @@ class Table:
 
     def __post_init__(self):
         if not self.columns:
-            raise PropertyRequiredError("columns", self.resource_id)
+            raise PropertyRequiredError("columns", self.resource_id)  # noqa: EM101
 
     def __hash__(self):
         return hash(self.resource_id)
@@ -74,7 +74,8 @@ class ResourceColumn:
     name: str
     data_type: str | None
     description: str | None
-    quote:bool
+    quote: bool
+
 
 @dataclass(frozen=True)
 class Resource:
