@@ -32,11 +32,10 @@ class ResourceType(Enum):
 @dataclass(frozen=True)
 class TableColumn:
     name: str
-    short_type: str
+    dtype: str
     data_type: str
     is_numeric: bool
-    is_char: bool
-    description: str | None
+    is_string: bool
 
 
 @dataclass(frozen=True)
@@ -72,9 +71,9 @@ class ResourceID:
 @dataclass(frozen=True)
 class ResourceColumn:
     name: str
+    quote: bool
     data_type: str | None
     description: str | None
-    quote: bool
 
 
 @dataclass(frozen=True)

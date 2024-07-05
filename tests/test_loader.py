@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType, Table
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 
@@ -296,7 +296,7 @@ def test_selected_resources(loader_all):
             type=ResourceType.MODEL,
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
-            columns=[Column(name="id", data_type=None, description="")],
+            columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=ResourceConfig(yaml_path_template="_schema.yml"),
         ),
         Resource(
@@ -381,33 +381,53 @@ def test_selected_resource_tables(loader_all):
         Table(
             resource_id=ResourceID("seed.my_pumpkin.seed_customers"),
             columns=[
-                Column(name="id", data_type="INTEGER", description=None),
-                Column(name="name", data_type="character varying(256)", description=None),
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
             ],
         ),
         Table(
             resource_id=ResourceID("source.my_pumpkin.pumpkin.customers"),
             columns=[
-                Column(name="id", data_type="INTEGER", description=None),
-                Column(name="name", data_type="character varying(256)", description=None),
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
             ],
         ),
         Table(
             resource_id=ResourceID("model.my_pumpkin.stg_customers"),
             columns=[
-                Column(name="id", data_type="INTEGER", description=None),
-                Column(name="name", data_type="character varying(256)", description=None),
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
             ],
         ),
         Table(
             resource_id=ResourceID("snapshot.my_pumpkin.customers_snapshot"),
             columns=[
-                Column(name="id", data_type="INTEGER", description=None),
-                Column(name="name", data_type="character varying(256)", description=None),
-                Column(name="dbt_scd_id", data_type="character varying(256)", description=None),
-                Column(name="dbt_updated_at", data_type="TIMESTAMP", description=None),
-                Column(name="dbt_valid_from", data_type="TIMESTAMP", description=None),
-                Column(name="dbt_valid_to", data_type="TIMESTAMP", description=None),
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
+                TableColumn(
+                    name="dbt_scd_id",
+                    dtype="VARCHAR",
+                    data_type="character varying(256)",
+                    is_numeric=False,
+                    is_string=True,
+                ),
+                TableColumn(
+                    name="dbt_updated_at", dtype="TIMESTAMP", data_type="TIMESTAMP", is_numeric=False, is_string=False
+                ),
+                TableColumn(
+                    name="dbt_valid_from", dtype="TIMESTAMP", data_type="TIMESTAMP", is_numeric=False, is_string=False
+                ),
+                TableColumn(
+                    name="dbt_valid_to", dtype="TIMESTAMP", data_type="TIMESTAMP", is_numeric=False, is_string=False
+                ),
             ],
         ),
     }

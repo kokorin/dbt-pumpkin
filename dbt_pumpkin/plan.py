@@ -163,7 +163,7 @@ class DeleteResourceColumn(ResourceColumnAction):
     column_name: str
 
     def describe(self) -> str:
-        return f"Delete column {self.resource_type} {self.resource_name} {self.column_name} {self.column_type} at {self.path}"
+        return f"Delete column {self.resource_type} {self.resource_name} {self.column_name} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
@@ -179,6 +179,11 @@ class DeleteResourceColumn(ResourceColumnAction):
 class ReorderResourceColumns(ResourceColumnAction):
     columns_order: list[str]
 
+    def __post_init__(self):
+        if len(self.columns_order) != len(set(self.columns_order)):
+            msg = f"Column names must be unique: {self.columns_order}"
+            raise PumpkinError(msg)
+
     def describe(self) -> str:
         return f"Reorder columns {self.resource_type} {self.resource_name} at {self.path}"
 
@@ -186,13 +191,11 @@ class ReorderResourceColumns(ResourceColumnAction):
         yaml_columns = self._get_or_create_columns(files)
         column_by_name = {yc["name"]: yc for yc in yaml_columns}
 
-        reordered_columns = []
-        for name in self.columns_order:
-            if name not in column_by_name:
-                msg = f"Column {name} not found in {self.resource_type} {self.resource_type}"
-                raise PumpkinError(msg)
+        if column_by_name.keys() != set(self.columns_order):
+            msg = f"Column names in YAML and provided don't match: {column_by_name.keys()} vs {self.columns_order}"
+            raise PumpkinError(msg)
 
-            reordered_columns.append(column_by_name[name])
+        reordered_columns = [column_by_name[name] for name in self.columns_order]
 
         yaml_columns.clear()
         yaml_columns.extend(reordered_columns)

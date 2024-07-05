@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType
 from dbt_pumpkin.plan import BootstrapResource, RelocateResource
 from dbt_pumpkin.planner import BootstrapPlanner, RelocationPlanner
 
@@ -32,7 +32,7 @@ def resources_with_config(source_config: ResourceConfig, non_source_config: Reso
             type=ResourceType.MODEL,
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
-            columns=[Column(name="id", data_type=None, description="")],
+            columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=non_source_config,
         ),
         Resource(
@@ -45,7 +45,7 @@ def resources_with_config(source_config: ResourceConfig, non_source_config: Reso
             type=ResourceType.MODEL,
             path=Path("models/staging/stg_orders.sql"),
             yaml_path=None,
-            columns=[Column(name="id", data_type=None, description="")],
+            columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=non_source_config,
         ),
     ]
@@ -80,15 +80,15 @@ def actual_yaml_resources() -> [list]:
 
 
 def test_bootstrap_no_resources(no_resources):
-    assert [] == BootstrapPlanner().plan(no_resources).actions
+    assert [] == BootstrapPlanner(no_resources).plan().actions
 
 
 def test_bootstrap_no_yaml_path(no_yaml_path_resources):
-    assert [] == BootstrapPlanner().plan(no_yaml_path_resources).actions
+    assert [] == BootstrapPlanner(no_yaml_path_resources).plan().actions
 
 
 def test_bootstrap_yaml_per_resource(separate_yaml_resources):
-    assert set(BootstrapPlanner().plan(separate_yaml_resources).actions) == {
+    assert set(BootstrapPlanner(separate_yaml_resources).plan().actions) == {
         BootstrapResource(
             resource_type=ResourceType.MODEL,
             resource_name="stg_orders",
@@ -98,7 +98,7 @@ def test_bootstrap_yaml_per_resource(separate_yaml_resources):
 
 
 def test_bootstrap_yaml_actual_paths(actual_yaml_resources):
-    assert set(BootstrapPlanner().plan(actual_yaml_resources).actions) == {
+    assert set(BootstrapPlanner(actual_yaml_resources).plan().actions) == {
         BootstrapResource(
             resource_type=ResourceType.MODEL,
             resource_name="stg_orders",
@@ -108,15 +108,15 @@ def test_bootstrap_yaml_actual_paths(actual_yaml_resources):
 
 
 def test_relocation_no_resources(no_resources):
-    assert [] == RelocationPlanner().plan(no_resources).actions
+    assert [] == RelocationPlanner(no_resources).plan().actions
 
 
 def test_relocation_no_yaml_path(no_yaml_path_resources):
-    assert [] == RelocationPlanner().plan(no_yaml_path_resources).actions
+    assert [] == RelocationPlanner(no_yaml_path_resources).plan().actions
 
 
 def test_relocation_yaml_per_resource(separate_yaml_resources):
-    assert set(RelocationPlanner().plan(separate_yaml_resources).actions) == {
+    assert set(RelocationPlanner(separate_yaml_resources).plan().actions) == {
         RelocateResource(
             resource_type=ResourceType.SOURCE,
             resource_name="ingested",
@@ -133,4 +133,4 @@ def test_relocation_yaml_per_resource(separate_yaml_resources):
 
 
 def test_relocation_yaml_actual_paths(actual_yaml_resources):
-    assert [] == RelocationPlanner().plan(actual_yaml_resources).actions
+    assert [] == RelocationPlanner(actual_yaml_resources).plan().actions

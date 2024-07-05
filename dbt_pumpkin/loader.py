@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable
 
 from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType, Table
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
 from dbt_pumpkin.dbt_compat import (
     EventMsg,
     Manifest,
@@ -157,7 +157,7 @@ class ResourceLoader:
                     path=path,
                     yaml_path=yaml_path,
                     columns=[
-                        Column(name=c.name, data_type=c.data_type, description=c.description)
+                        ResourceColumn(name=c.name, quote=c.quote, data_type=c.data_type, description=c.description)
                         for c in raw_resource.columns.values()
                     ],
                     config=config,
@@ -269,7 +269,7 @@ class ResourceLoader:
         def on_result(result: dict):
             table = Table(
                 resource_id=ResourceID(result["resource_id"]),
-                columns=[Column(name=c["name"], data_type=c["data_type"], description=None) for c in result["columns"]],
+                columns=[TableColumn(**c) for c in result["columns"]],
             )
             tables.append(table)
             logger.info("Looked up %s / %s: %s", len(tables), len(raw_resources), table.resource_id)
