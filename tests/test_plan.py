@@ -469,7 +469,7 @@ def test_delete_resource_column_no_column_error(files):
         action.execute(files)
 
 
-def test_reorder_resource_column(files):
+def test_reorder_resource_columns(files):
     action = ReorderResourceColumns(
         resource_type=ResourceType.MODEL,
         resource_name="stg_customers",
@@ -505,3 +505,27 @@ def test_reorder_resource_column(files):
     action.execute(files)
 
     assert files == expected
+
+
+def test_reorder_resource_columns_not_unique_columns_error():
+    with pytest.raises(PumpkinError):
+        ReorderResourceColumns(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            columns_order=["name", "id", "id"],
+        )
+
+
+def test_reorder_resource_columns_unknown_column_error(files):
+    action = ReorderResourceColumns(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        columns_order=["name", "id", "unknown"],
+    )
+
+    with pytest.raises(PumpkinError):
+        action.execute(files)

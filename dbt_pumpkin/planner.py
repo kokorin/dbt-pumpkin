@@ -11,6 +11,7 @@ from dbt_pumpkin.plan import (
     DeleteResourceColumn,
     Plan,
     RelocateResource,
+    ReorderResourceColumns,
     UpdateResourceColumn,
 )
 from dbt_pumpkin.resolver import PathResolver
@@ -124,7 +125,6 @@ class SynchronizationPlanner(ActionPlanner):
     def _resource_plan(self, resource: Resource, table: Table) -> list[Action]:
         resource_column_by_table_column_name: dict[str, ResourceColumn] = {}
         table_column_name_by_resource_column_name: dict[str, str] = {}
-        resource_column_names: list[str] = []
 
         proceed = True
         for resource_column in resource.columns:
@@ -155,14 +155,19 @@ class SynchronizationPlanner(ActionPlanner):
 
             resource_column_by_table_column_name[table_column_name] = resource_column
             table_column_name_by_resource_column_name[resource_column.name] = table_column_name
-            resource_column_names.append(table_column_name)
 
         if not proceed:
-            logger.warning("Can't plan cation for resource %s", resource.unique_id)
+            logger.warning("Can't plan actions for resource %s", resource.unique_id)
             return []
 
         # Now 'columns' variable contains database' column names mapped to resource column
         result: list[Action] = []
+
+        # resource column names AFTER applying all Add and Delete actions
+        resource_column_order: list[str] = [c.name for c in resource.columns]
+        # resource column name ordered as columns are in a table
+        # this list should contain not canonized names (like in YAML) if a column is specified in resource
+        table_column_order: list[str] = []
 
         for table_column in table.columns:
             if table_column.name not in resource_column_by_table_column_name:
@@ -177,6 +182,8 @@ class SynchronizationPlanner(ActionPlanner):
                         column_type=table_column.data_type,
                     )
                 )
+                resource_column_order.append(table_column.name)
+                table_column_order.append(table_column.name)
                 continue
 
             resource_column = resource_column_by_table_column_name[table_column.name]
@@ -194,6 +201,8 @@ class SynchronizationPlanner(ActionPlanner):
                     )
                 )
 
+            table_column_order.append(resource_column.name)
+
         table_column_names = {c.name for c in table.columns}
         for resource_column in resource.columns:
             table_column_name = table_column_name_by_resource_column_name.get(resource_column.name)
@@ -209,8 +218,18 @@ class SynchronizationPlanner(ActionPlanner):
                         column_name=resource_column.name,
                     )
                 )
+                resource_column_order.remove(resource_column.name)
 
-        # !TODO reorder!
+        if resource_column_order != table_column_order:
+            result.append(
+                ReorderResourceColumns(
+                    resource_type=resource.type,
+                    resource_name=resource.name,
+                    path=resource.yaml_path,
+                    source_name=resource.source_name,
+                    columns_order=table_column_order,
+                )
+            )
 
         return result
 
