@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from dbt_pumpkin.canon import LowercaseCanon, UppercaseCanon
 from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
 from dbt_pumpkin.plan import (
     AddResourceColumn,
@@ -145,8 +144,8 @@ def test_relocation_yaml_actual_paths(actual_yaml_resources):
 
 
 def test_synchronization_no_resources():
-    assert [] == SynchronizationPlanner([], [], UppercaseCanon()).plan().actions
-    assert [] == SynchronizationPlanner([], [], LowercaseCanon()).plan().actions
+    assert [] == SynchronizationPlanner([], []).plan().actions
+    assert [] == SynchronizationPlanner([], []).plan().actions
 
 
 def test_synchronization_only_add():
@@ -174,7 +173,7 @@ def test_synchronization_only_add():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table], UppercaseCanon()).plan().actions == [
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -215,7 +214,7 @@ def test_synchronization_only_update():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table], UppercaseCanon()).plan().actions == [
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -256,7 +255,7 @@ def test_synchronization_only_delete():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table], UppercaseCanon()).plan().actions == [
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
         DeleteResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -297,7 +296,7 @@ def test_synchronization_all_actions():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table], UppercaseCanon()).plan().actions == [
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",

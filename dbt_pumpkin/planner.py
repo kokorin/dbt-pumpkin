@@ -1,8 +1,8 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 
-from dbt_pumpkin.canon import NamingCanon
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceType, Table
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceType, Table, TableColumn
 from dbt_pumpkin.exception import PumpkinError
 from dbt_pumpkin.plan import (
     Action,
@@ -117,60 +117,36 @@ class RelocationPlanner(ActionPlanner):
 
 
 class SynchronizationPlanner(ActionPlanner):
-    def __init__(self, resources: list[Resource], tables: list[Table], naming_canon: NamingCanon):
+    def __init__(self, resources: list[Resource], tables: list[Table]):
         self._resources = resources
         self._tables = tables
-        self._naming_canon = naming_canon
+        self._dont_quote_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    def _quote(self, name: str) -> bool:
+        return self._dont_quote_re.match(name) is None
 
     def _resource_plan(self, resource: Resource, table: Table) -> list[Action]:
-        resource_column_by_table_column_name: dict[str, ResourceColumn] = {}
-        table_column_name_by_resource_column_name: dict[str, str] = {}
-
-        proceed = True
-        for resource_column in resource.columns:
-            if resource_column.quote:
-                # columns, which need quotation, should be reported by DB by exact same name
-                table_column_name = resource_column.name
-            elif self._naming_canon.can_canonize(resource_column.name):
-                table_column_name = self._naming_canon.canonize(resource_column.name)
-            else:
-                logger.warning(
-                    "Resource %s column '%s' should have 'quote' property set to True",
-                    resource.unique_id,
-                    resource_column.name,
-                )
-                proceed = False
-                break
-
-            ambiguous_column = resource_column_by_table_column_name.get(table_column_name)
-            if ambiguous_column:
-                logger.warning(
-                    "Resource %s columns '%s' and '%s' are ambiguous. Set 'quote' property to True or rename",
-                    resource.unique_id,
-                    ambiguous_column.name,
-                    resource_column.name,
-                )
-                proceed = False
-                break
-
-            resource_column_by_table_column_name[table_column_name] = resource_column
-            table_column_name_by_resource_column_name[resource_column.name] = table_column_name
-
-        if not proceed:
-            logger.warning("Can't plan actions for resource %s", resource.unique_id)
+        resource_column_by_uppercase_name: dict[str, ResourceColumn] = {c.name.upper(): c for c in resource.columns}
+        if len(resource_column_by_uppercase_name) != len(resource.columns):
+            logger.warning("Resource %s contains ambiguous columns (ignore case)", resource.name)
             return []
 
-        # Now 'columns' variable contains database' column names mapped to resource column
+        table_column_name_by_uppercase_name: dict[str, TableColumn] = {c.name.upper(): c for c in table.columns}
+        if len(table_column_name_by_uppercase_name) != len(table.columns):
+            logger.warning("Table %s contains ambiguous columns (ignore case)", resource.name)
+            return []
+
+        # Now we can look up column by uppercase
+
         result: list[Action] = []
 
         # resource column names AFTER applying all Add and Delete actions
-        resource_column_order: list[str] = [c.name for c in resource.columns]
-        # resource column name ordered as columns are in a table
-        # this list should contain not canonized names (like in YAML) if a column is specified in resource
-        table_column_order: list[str] = []
+        # this list will be modified during planning
+        resource_column_names: list[str] = [c.name for c in resource.columns]
 
         for table_column in table.columns:
-            if table_column.name not in resource_column_by_table_column_name:
+            resource_column = resource_column_by_uppercase_name.get(table_column.name.upper())
+            if not resource_column:
                 result.append(
                     AddResourceColumn(
                         resource_type=resource.type,
@@ -178,15 +154,13 @@ class SynchronizationPlanner(ActionPlanner):
                         path=resource.yaml_path,
                         source_name=resource.source_name,
                         column_name=table_column.name,
-                        column_quote=not self._naming_canon.can_canonize(table_column.name),
+                        column_quote=self._quote(table_column.name),
                         column_type=table_column.data_type,
                     )
                 )
-                resource_column_order.append(table_column.name)
-                table_column_order.append(table_column.name)
+                resource_column_names.append(table_column.name)
                 continue
 
-            resource_column = resource_column_by_table_column_name[table_column.name]
             if table_column.data_type != resource_column.data_type:
                 result.append(
                     UpdateResourceColumn(
@@ -194,40 +168,37 @@ class SynchronizationPlanner(ActionPlanner):
                         resource_name=resource.name,
                         path=resource.yaml_path,
                         source_name=resource.source_name,
-                        # Careful, columns in YAML may be named non-canonically.
-                        # We must provide column_name as it is in YAML
                         column_name=resource_column.name,
                         column_type=table_column.data_type,
                     )
                 )
 
-            table_column_order.append(resource_column.name)
-
-        table_column_names = {c.name for c in table.columns}
         for resource_column in resource.columns:
-            table_column_name = table_column_name_by_resource_column_name.get(resource_column.name)
-            if table_column_name not in table_column_names:
+            table_column = table_column_name_by_uppercase_name.get(resource_column.name.upper())
+            if not table_column:
                 result.append(
                     DeleteResourceColumn(
                         resource_type=resource.type,
                         resource_name=resource.name,
                         path=resource.yaml_path,
                         source_name=resource.source_name,
-                        # Careful, columns in YAML may be named non-canonically.
-                        # We must provide column_name as it is in YAML
                         column_name=resource_column.name,
                     )
                 )
-                resource_column_order.remove(resource_column.name)
+                resource_column_names.remove(resource_column.name)
 
-        if resource_column_order != table_column_order:
+        resource_column_uppercase_names = [n.upper() for n in resource_column_names]
+        table_column_uppercase_names = [c.name.upper() for c in table.columns]
+
+        if resource_column_uppercase_names != table_column_uppercase_names:
+            column_order = [resource_column_by_uppercase_name.get(c.name.upper(), c).name for c in table.columns]
             result.append(
                 ReorderResourceColumns(
                     resource_type=resource.type,
                     resource_name=resource.name,
                     path=resource.yaml_path,
                     source_name=resource.source_name,
-                    columns_order=table_column_order,
+                    columns_order=column_order,
                 )
             )
 
