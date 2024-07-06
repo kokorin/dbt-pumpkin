@@ -94,6 +94,8 @@ class ResourceColumnAction(Action, ABC):
             raise PropertyRequiredError("source_name", self.resource_name)  # noqa: EM101
         if self.resource_type != ResourceType.SOURCE and self.source_name is not None:
             raise PropertyNotAllowedError("source_name", self.resource_name)  # noqa: EM101
+        if not self.path:
+            raise PropertyRequiredError("path", self.resource_name)  # noqa: EM101
 
     def affected_files(self) -> set[Path]:
         return {self.path}
