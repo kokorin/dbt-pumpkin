@@ -70,6 +70,7 @@ def relocate(project_dir, profiles_dir, target, profile, select, exclude, dry_ru
     pumpkin = Pumpkin(project_params, resource_params)
     pumpkin.relocate(dry_run=dry_run)
 
+
 @cli.command
 @P.project_dir
 @P.profiles_dir

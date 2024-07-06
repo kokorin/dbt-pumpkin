@@ -216,8 +216,11 @@ class SynchronizationPlanner(ActionPlanner):
                 logger.warning("Table not found for resource: %s", resource.unique_id)
                 continue
             if not resource.yaml_path:
-                logger.warning("Resource %s %s has no YAML path defined, consider using bootstrap command",
-                               resource.type, resource.unique_id)
+                logger.warning(
+                    "Resource %s %s has no YAML path defined, consider using bootstrap command",
+                    resource.type,
+                    resource.unique_id,
+                )
                 continue
 
             actions += self._resource_plan(resource, table)
