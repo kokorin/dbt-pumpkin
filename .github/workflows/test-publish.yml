@@ -1,0 +1,25 @@
+name: Test Publish
+
+on:
+  push:
+    branches:
+      - main
+env:
+  PIP_CACHE_DIR: .cache/pip
+  PRE_COMMIT_HOME: .cache/pre-commit
+  HATCH_CACHE_DIR: .cache/hatch
+
+  HATCH_INDEX_USER: __token__
+  HATCH_INDEX_REPO: test
+  HATCH_INDEX_AUTH: ${{ secret.TEST_PYPI_TOKEN }}
+jobs:
+  test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+          cache: pip
+      - run: hatch build
+      - run: hatch publish
