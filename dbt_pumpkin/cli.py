@@ -71,6 +71,27 @@ def relocate(project_dir, profiles_dir, target, profile, select, exclude, dry_ru
     pumpkin.relocate(dry_run=dry_run)
 
 
+@cli.command
+@P.project_dir
+@P.profiles_dir
+@P.target
+@P.profile
+@P.select
+@P.exclude
+@P.dry_run
+@P.debug
+def synchronize(project_dir, profiles_dir, target, profile, select, exclude, dry_run, debug):
+    """
+    Synchronizes YAML definitions with actual tables in DB
+    """
+    set_up_logging(debug)
+
+    project_params = ProjectParams(project_dir=project_dir, profiles_dir=profiles_dir, target=target, profile=profile)
+    resource_params = ResourceParams(select=select, exclude=exclude)
+    pumpkin = Pumpkin(project_params, resource_params)
+    pumpkin.synchronize(dry_run=dry_run)
+
+
 def main():
     cli()
 

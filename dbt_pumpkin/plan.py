@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dbt_pumpkin.data import ResourceType
-from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
-from dbt_pumpkin.storage import Storage
+from dbt_pumpkin.exception import PropertyNotAllowedError, PropertyRequiredError, PumpkinError, ResourceNotFoundError
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from dbt_pumpkin.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +82,125 @@ class BootstrapResource(Action):
         to_file = files.setdefault(self.path, {"version": 2})
         to_resources = to_file.setdefault(self.resource_type.plural_name, [])
         to_resources.append({"name": self.resource_name, "columns": []})
+
+
+@dataclass(frozen=True)
+class ResourceColumnAction(Action, ABC):
+    source_name: str | None
+    path: Path
+
+    def __post_init__(self):
+        if self.resource_type == ResourceType.SOURCE and not self.source_name:
+            raise PropertyRequiredError("source_name", self.resource_name)  # noqa: EM101
+        if self.resource_type != ResourceType.SOURCE and self.source_name is not None:
+            raise PropertyNotAllowedError("source_name", self.resource_name)  # noqa: EM101
+        if not self.path:
+            raise PropertyRequiredError("path", self.resource_name)  # noqa: EM101
+
+    def affected_files(self) -> set[Path]:
+        return {self.path}
+
+    def _get_or_create_columns(self, files: dict[Path, dict]) -> list[dict[str, any]]:
+        if self.path not in files:
+            raise ResourceNotFoundError(self.resource_name, self.path)
+
+        yaml_content = files[self.path]
+        yaml_resources: list = yaml_content[self.resource_type.plural_name]
+
+        if self.resource_type == ResourceType.SOURCE:
+            # We need to go 1 level deeper for sources
+            yaml_source = next((r for r in yaml_resources if r["name"] == self.source_name), None)
+            if not yaml_source:
+                msg = f"Source {self.source_name} not found in {self.path}"
+                raise PumpkinError(msg)
+
+            yaml_resources = yaml_source.setdefault("tables", [])
+
+        yaml_resource = next((r for r in yaml_resources if r["name"] == self.resource_name), None)
+        if not yaml_resource:
+            msg = f"Resource {self.resource_name} not found in {self.path}"
+            raise PumpkinError(msg)
+
+        return yaml_resource.setdefault("columns", [])
+
+
+@dataclass(frozen=True)
+class AddResourceColumn(ResourceColumnAction):
+    column_name: str
+    column_quote: bool
+    column_type: str
+
+    def describe(self) -> str:
+        return (
+            f"Add column {self.resource_type} {self.resource_name} {self.column_name} {self.column_type} at {self.path}"
+        )
+
+    def execute(self, files: dict[Path, dict]):
+        yaml_columns = self._get_or_create_columns(files)
+        yaml_columns.append(
+            {"name": self.column_name, **({"quote": True} if self.column_quote else {}), "data_type": self.column_type}
+        )
+
+
+@dataclass(frozen=True)
+class UpdateResourceColumn(ResourceColumnAction):
+    column_name: str
+    column_type: str
+
+    def describe(self) -> str:
+        return f"Update column {self.resource_type} {self.resource_name} {self.column_name} {self.column_type} at {self.path}"
+
+    def execute(self, files: dict[Path, dict]):
+        yaml_columns = self._get_or_create_columns(files)
+        yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
+        if not yaml_column:
+            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+            raise PumpkinError(msg)
+
+        yaml_column["data_type"] = self.column_type
+
+
+@dataclass(frozen=True)
+class DeleteResourceColumn(ResourceColumnAction):
+    column_name: str
+
+    def describe(self) -> str:
+        return f"Delete column {self.resource_type} {self.resource_name} {self.column_name} at {self.path}"
+
+    def execute(self, files: dict[Path, dict]):
+        yaml_columns = self._get_or_create_columns(files)
+        yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
+        if not yaml_column:
+            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+            raise PumpkinError(msg)
+
+        yaml_columns.remove(yaml_column)
+
+
+@dataclass(frozen=True)
+class ReorderResourceColumns(ResourceColumnAction):
+    columns_order: list[str]
+
+    def __post_init__(self):
+        if len(self.columns_order) != len(set(self.columns_order)):
+            msg = f"Column names must be unique: {self.columns_order}"
+            raise PumpkinError(msg)
+
+    def describe(self) -> str:
+        return f"Reorder columns {self.resource_type} {self.resource_name} at {self.path}"
+
+    def execute(self, files: dict[Path, dict]):
+        yaml_columns = self._get_or_create_columns(files)
+        column_by_name = {yc["name"]: yc for yc in yaml_columns}
+
+        if column_by_name.keys() != set(self.columns_order):
+            msg = f"Column names in YAML and provided don't match: {column_by_name.keys()} vs {self.columns_order}"
+            raise PumpkinError(msg)
+
+        reordered_columns = [column_by_name[name] for name in self.columns_order]
+
+        yaml_columns.clear()
+        yaml_columns.extend(reordered_columns)
 
 
 class Plan:

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable
 
 from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Column, Resource, ResourceConfig, ResourceID, ResourceType, Table
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
 from dbt_pumpkin.dbt_compat import (
     EventMsg,
     Manifest,
@@ -36,7 +36,6 @@ class ResourceLoader:
         self._resource_ids: dict[ResourceType, set[ResourceID]] = None
         self._resources: list[Resource] = None
         self._tables: list[Table] = None
-        self._adapter_name: str = None
         self._yaml = YAML(typ="safe")
 
     def _do_load_manifest(self) -> Manifest:
@@ -157,7 +156,7 @@ class ResourceLoader:
                     path=path,
                     yaml_path=yaml_path,
                     columns=[
-                        Column(name=c.name, data_type=c.data_type, description=c.description)
+                        ResourceColumn(name=c.name, quote=c.quote, data_type=c.data_type, description=c.description)
                         for c in raw_resource.columns.values()
                     ],
                     config=config,
@@ -269,7 +268,7 @@ class ResourceLoader:
         def on_result(result: dict):
             table = Table(
                 resource_id=ResourceID(result["resource_id"]),
-                columns=[Column(name=c["name"], data_type=c["data_type"], description=None) for c in result["columns"]],
+                columns=[TableColumn(**c) for c in result["columns"]],
             )
             tables.append(table)
             logger.info("Looked up %s / %s: %s", len(tables), len(raw_resources), table.resource_id)
@@ -284,27 +283,3 @@ class ResourceLoader:
         if self._tables is None:
             self._tables = self._do_lookup_tables()
         return self._tables
-
-    def _do_resolve_adapter_name(self) -> str:
-        logger.info("Resolving adapter name")
-
-        adapter_names: list[str] = []
-
-        def on_result(result: str):
-            adapter_names.append(result)
-            logger.debug("Resolved adapter name: %s", result)
-
-        self._run_operation("resolve_adapter_name", project_vars=None, result_callback=on_result)
-
-        if len(adapter_names) != 1:
-            msg = f"Expected exactly 1 adapter name, got: {adapter_names}"
-            raise PumpkinError(msg)
-
-        return adapter_names[0]
-
-    def resolve_adapter_name(self) -> str:
-        # Do not forget to add adapter-specific macro to resolve_adapter_name.sql
-        if self._adapter_name is None:
-            self._adapter_name = self._do_resolve_adapter_name()
-
-        return self._adapter_name

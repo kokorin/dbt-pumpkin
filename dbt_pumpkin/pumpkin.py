@@ -2,7 +2,7 @@ import logging
 
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
-from dbt_pumpkin.planner import ActionPlanner, BootstrapPlanner, RelocationPlanner
+from dbt_pumpkin.planner import BootstrapPlanner, RelocationPlanner, SynchronizationPlanner
 from dbt_pumpkin.storage import DiskStorage
 
 logger = logging.getLogger(__name__)
@@ -13,20 +13,44 @@ class Pumpkin:
         self.project_params = project_params
         self.resource_params = resource_params
 
-    def _plan_and_execute(self, planner: ActionPlanner, *, dry_run: bool):
-        logger.info("Loading resource")
+    def bootstrap(self, *, dry_run: bool):
         loader = ResourceLoader(self.project_params, self.resource_params)
+
+        logger.info("Loading resource")
         resources = loader.select_resources()
 
-        logger.info("Planning actions")
-        plan = planner.plan(resources)
+        planner = BootstrapPlanner(resources)
+        plan = planner.plan()
 
         storage = DiskStorage(loader.locate_project_dir(), read_only=dry_run)
         logger.info("Executing actions")
         plan.execute(storage)
 
-    def bootstrap(self, *, dry_run: bool):
-        self._plan_and_execute(BootstrapPlanner(), dry_run=dry_run)
-
     def relocate(self, *, dry_run: bool):
-        self._plan_and_execute(RelocationPlanner(), dry_run=dry_run)
+        loader = ResourceLoader(self.project_params, self.resource_params)
+
+        logger.info("Loading resource")
+        resources = loader.select_resources()
+
+        planner = RelocationPlanner(resources)
+        plan = planner.plan()
+
+        storage = DiskStorage(loader.locate_project_dir(), read_only=dry_run)
+        logger.info("Executing actions")
+        plan.execute(storage)
+
+    def synchronize(self, *, dry_run: bool):
+        loader = ResourceLoader(self.project_params, self.resource_params)
+
+        logger.info("Loading resource")
+        resources = loader.select_resources()
+
+        logger.info("Looking up tables")
+        tables = loader.lookup_tables()
+
+        planner = SynchronizationPlanner(resources, tables)
+        plan = planner.plan()
+
+        storage = DiskStorage(loader.locate_project_dir(), read_only=dry_run)
+        logger.info("Executing actions")
+        plan.execute(storage)

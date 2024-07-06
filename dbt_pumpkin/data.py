@@ -30,16 +30,22 @@ class ResourceType(Enum):
 
 
 @dataclass(frozen=True)
-class Column:
+class TableColumn:
     name: str
-    data_type: str | None
-    description: str | None
+    dtype: str
+    data_type: str
+    is_numeric: bool
+    is_string: bool
 
 
 @dataclass(frozen=True)
 class Table:
     resource_id: ResourceID
-    columns: list[Column]
+    columns: list[TableColumn]
+
+    def __post_init__(self):
+        if not self.columns:
+            raise PropertyRequiredError("columns", self.resource_id)  # noqa: EM101
 
     def __hash__(self):
         return hash(self.resource_id)
@@ -63,6 +69,14 @@ class ResourceID:
 
 
 @dataclass(frozen=True)
+class ResourceColumn:
+    name: str
+    quote: bool
+    data_type: str | None
+    description: str | None
+
+
+@dataclass(frozen=True)
 class Resource:
     unique_id: ResourceID
     name: str
@@ -73,7 +87,7 @@ class Resource:
     type: ResourceType
     path: Path | None
     yaml_path: Path | None
-    columns: list[Column]
+    columns: list[ResourceColumn]
     config: ResourceConfig | None
 
     def __post_init__(self):
