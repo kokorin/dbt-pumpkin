@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/test-publishing-2
 env:
   PIP_CACHE_DIR: .cache/pip
   PRE_COMMIT_HOME: .cache/pre-commit
@@ -21,5 +22,6 @@ jobs:
         with:
           python-version: 3.12
           cache: pip
+      - run: pip install hatch
       - run: hatch build
       - run: hatch publish
