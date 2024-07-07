@@ -431,3 +431,7 @@ def test_selected_resource_tables(loader_all):
             ],
         ),
     }
+
+
+def test_selected_resource_tables_no_actual_tables(loader_configured_paths):
+    assert [] == loader_configured_paths.lookup_tables()
