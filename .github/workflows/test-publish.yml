@@ -21,5 +21,6 @@ jobs:
         with:
           python-version: 3.12
           cache: pip
+      - run: pip install hatch
       - run: hatch build
       - run: hatch publish
