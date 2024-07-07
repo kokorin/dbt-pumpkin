@@ -14,7 +14,7 @@ env:
   HATCH_INDEX_REPO: test
   HATCH_INDEX_AUTH: ${{ secrets.TEST_PYPI_TOKEN }}
 jobs:
-  test-publish:
+  test-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

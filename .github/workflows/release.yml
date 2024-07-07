@@ -1,11 +1,9 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - release/**
-    tags:
-      - v*
+  release:
+    types:
+      - released
 env:
   PIP_CACHE_DIR: .cache/pip
   HATCH_CACHE_DIR: .cache/hatch
@@ -15,7 +13,7 @@ env:
   HATCH_INDEX_REPO: main
   HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}
 jobs:
-  test-publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
