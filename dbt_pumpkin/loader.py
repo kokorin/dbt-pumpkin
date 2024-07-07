@@ -243,8 +243,8 @@ class ResourceLoader:
                         result_callback(potential_result[operation_name])
                     else:
                         logger.debug("Ignoring potential result: no '%s' key: %s", operation_name, potential_result)
-                except ValueError:
-                    logger.exception("Failed to parse potential result %s", event.info.msg)
+                except Exception:
+                    logger.exception("Failed to parse potential result %s", event.info)
 
         res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)
 
@@ -264,14 +264,25 @@ class ResourceLoader:
         }
 
         tables: list[Table] = []
+        processed: list[str] = []
 
         def on_result(result: dict):
-            table = Table(
-                resource_id=ResourceID(result["resource_id"]),
-                columns=[TableColumn(**c) for c in result["columns"]],
+            resource_id: str = result["resource_id"]
+            processed.append(resource_id)
+            logger.info("Processing %s / %s: %s", len(processed), len(raw_resources), resource_id)
+
+            columns: list[dict] = result["columns"]
+            # If tables doesn't exist columns is None
+            if not columns:
+                logger.warning("Relation doesn't exist: %s", resource_id)
+                return
+
+            tables.append(
+                Table(
+                    resource_id=ResourceID(resource_id),
+                    columns=[TableColumn(**c) for c in columns],
+                )
             )
-            tables.append(table)
-            logger.info("Looked up %s / %s: %s", len(tables), len(raw_resources), table.resource_id)
 
         self._run_operation("lookup_tables", project_vars, on_result)
 
