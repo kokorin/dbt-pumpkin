@@ -26,6 +26,7 @@ source = "versioningit"
 
 [tool.hatch.build]
 exclude = [
+  "/.cache",
   "/.github",
   "/tests",
   "/.pre-commit-config.yaml",
