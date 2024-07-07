@@ -1,3 +1,4 @@
+import platform
 import textwrap
 from pathlib import Path
 
@@ -57,20 +58,23 @@ def test_roundtrip(tmp_path: Path):
 
     actual = (tmp_path / "my_model.yml").read_text()
 
-    # Ruamel adds newlines after comments
+    # Ruamel adds newlines after comments on Windows, but not on Ubuntu
     # It should be fine as we don't re-write a file if there is nothing to change in it
-    expected = textwrap.dedent("""\
-        version: 2
-        models:
-        # TODO rename it!
+    if platform.system().lower() == "windows":
+        expected = textwrap.dedent("""\
+            version: 2
+            models:
+            # TODO rename it!
 
-        - name: my_model
-          description: my very first model
-          columns:
-          - name: id
-            data_type: short # or is it int actually?
+            - name: my_model
+              description: my very first model
+              columns:
+              - name: id
+                data_type: short # or is it int actually?
 
-          - name: name
-    """)
+              - name: name
+        """)
+    else:
+        expected = content
 
     assert expected == actual

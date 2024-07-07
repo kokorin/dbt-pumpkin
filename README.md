@@ -8,7 +8,7 @@ Inspired by [dbt-osmosis](https://z3z1ma.github.io/dbt-osmosis/)
 
 ### Botstrap DBT Resources
 
-`dbt-osmosis` allows to create DBT YAML schema files for Seeds, Models and Snapshots. For that one has to add
+`dbt-pumpkin` allows to create DBT YAML schema files for Seeds, Models and Snapshots. For that one has to add
 [dbt-pumpking-path](#dbt-pumpkin-path) configuration property for a Resource. Then `dbt-pumpkin` will be able to
 understand where YAML files should be located.
 
@@ -39,7 +39,7 @@ Options:
 
 ### Relocate DBT Resources
 
-`dbt-osmosis` also allows to move DBT YAML schema files for Sources, Seeds, Models and Snapshots. As
+`dbt-pumpkin` also allows to move DBT YAML schema files for Sources, Seeds, Models and Snapshots. As
 with [bootstrap](#botstrap-dbt-resources) command [dbt-pumpking-path](#dbt-pumpkin-path) configuration property is
 required for a Resource. Then `dbt-pumpkin` will be able to understand where YAML files should be located.
 
