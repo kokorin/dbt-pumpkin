@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - fix/test-publishing-2
 env:
   PIP_CACHE_DIR: .cache/pip
   PRE_COMMIT_HOME: .cache/pre-commit
