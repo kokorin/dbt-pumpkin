@@ -22,7 +22,7 @@ class DiskStorage(Storage):
     def __init__(self, root_dir: Path, *, read_only: bool):
         self._root_dir = root_dir
         self._read_only = read_only
-        self._yaml = YAML(typ="safe")
+        self._yaml = YAML(typ="rt")
 
     def load_yaml(self, files: set[Path]) -> dict[Path, Any]:
         result: dict[Path, Any] = {}
