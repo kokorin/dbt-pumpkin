@@ -25,4 +25,5 @@ jobs:
       - run: pip install hatch
       - run: hatch version
       - run: hatch build
+      - run: ls -lhtr dist
       - run: hatch publish

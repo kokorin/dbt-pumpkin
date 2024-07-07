@@ -8,8 +8,8 @@ on:
       - v*
 env:
   PIP_CACHE_DIR: .cache/pip
-  PRE_COMMIT_HOME: .cache/pre-commit
   HATCH_CACHE_DIR: .cache/hatch
+  UV_CACHE_DIR: .cache/uv
 
   HATCH_INDEX_USER: __token__
   HATCH_INDEX_REPO: main
@@ -26,4 +26,5 @@ jobs:
       - run: pip install hatch
       - run: hatch version
       - run: hatch build
+      - run: ls -lhtr dist
       - run: hatch publish
