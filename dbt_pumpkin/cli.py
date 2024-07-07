@@ -25,6 +25,7 @@ def set_up_logging(debug):
 
 
 @click.group
+@click.version_option()
 def cli():
     pass
 
