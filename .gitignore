@@ -3,3 +3,6 @@ __pycache__
 /.vscode
 /.idea
 /dist
+
+#auto-generated
+/dbt_pumpkin/version.py
