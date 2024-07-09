@@ -23,6 +23,7 @@ class DiskStorage(Storage):
         self._root_dir = root_dir
         self._read_only = read_only
         self._yaml = YAML(typ="rt")
+        self._yaml.preserve_quotes = True
 
     def load_yaml(self, files: set[Path]) -> dict[Path, Any]:
         result: dict[Path, Any] = {}
