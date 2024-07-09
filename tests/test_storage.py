@@ -37,7 +37,7 @@ def test_save_yaml_read_only(tmp_path: Path):
     assert not (tmp_path / "schema.yml").exists()
 
 
-def test_roundtrip(tmp_path: Path):
+def test_roundtrip_preserve_comments(tmp_path: Path):
     content = textwrap.dedent("""\
         version: 2
         models:
@@ -78,3 +78,28 @@ def test_roundtrip(tmp_path: Path):
         expected = content
 
     assert expected == actual
+
+
+def test_roundtrip_preserve_quotes(tmp_path: Path):
+    content = textwrap.dedent("""\
+        version: 2
+        models:
+        - name: "my_model"
+          description: "my very first model"
+          columns:
+          - name: "id"
+            data_type: short
+    """)
+
+    (tmp_path / "my_model.yml").write_text(content)
+
+    storage = DiskStorage(tmp_path, read_only=False)
+    files = storage.load_yaml({Path("my_model.yml")})
+
+    yaml = files[Path("my_model.yml")]
+    assert len([m for m in yaml["models"] if m["name"] == "my_model"]) == 1
+    storage.save_yaml(files)
+
+    actual = (tmp_path / "my_model.yml").read_text()
+
+    assert content == actual
