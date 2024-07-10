@@ -78,11 +78,15 @@ class ResourceLoader:
 
         result: dict[ResourceType, set[ResourceID]] = {}
         resource_counter = Counter()
+        # TODO: after dropping DBT 1.5 support we can get project name from Manifest
+        # self.load_manifest().metadata.project_name
+        project_name = self._load_project_yml()["name"]
 
         for raw_resource in res.result:
             resource = json.loads(raw_resource)
             resource_type_str = resource["resource_type"]
-            if resource_type_str in ResourceType.values():
+            resource_package_name = resource["package_name"]
+            if resource_type_str in ResourceType.values() and resource_package_name == project_name:
                 res_type = ResourceType(resource_type_str)
                 res_id = ResourceID(resource["unique_id"])
 
@@ -133,7 +137,7 @@ class ResourceLoader:
             else:
                 path = Path(raw_resource.original_file_path)
                 if raw_resource.patch_path:
-                    # path_path starts with "project_name://", we just remove it
+                    # patch_path starts with "project_name://", we just remove it
                     # DBT 1.5 has no manifest.metadata.project_name, so we use resource FQN which starts with project name
                     # patch_path_prefix = self.manifest.metadata.project_name + "://"
                     patch_path_prefix = raw_resource.fqn[0] + "://"
@@ -193,13 +197,7 @@ class ResourceLoader:
             msg = f"Macros directory is not found or doesn't exist: {src_macros_path}"
             raise PumpkinError(msg)
 
-        project_yml_path = self.locate_project_dir() / "dbt_project.yml"
-
-        if not project_yml_path.exists() or not project_yml_path.is_file():
-            msg = f"dbt_project.yml is not found or doesn't exist: {project_yml_path}"
-            raise PumpkinError(msg)
-
-        project_yml = self._yaml.load(project_yml_path)
+        project_yml = self._load_project_yml()
 
         pumpkin_yml = {
             "name": "dbt_pumpkin",
@@ -224,6 +222,13 @@ class ResourceLoader:
         logger.debug("Created temp DBT project %s", pumpkin_dir)
 
         return pumpkin_dir
+
+    def _load_project_yml(self):
+        project_yml_path = self.locate_project_dir() / "dbt_project.yml"
+        if not project_yml_path.exists() or not project_yml_path.is_file():
+            msg = f"dbt_project.yml is not found or doesn't exist: {project_yml_path}"
+            raise PumpkinError(msg)
+        return self._yaml.load(project_yml_path)
 
     def _run_operation(
         self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]
