@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
+import shutil
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any
 
 import pytest
+from dbt_pumpkin.dbt_compat import dbtRunner
 from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
@@ -54,7 +58,15 @@ def loader_only_models() -> ResourceLoader:
 yaml = YAML(typ="safe")
 
 
-def fake_dbt_project_loader(project_yml: dict, project_files: dict[str, Any]) -> ResourceLoader:
+@dataclass
+class Project:
+    project_yml: dict[str, Any]
+    project_files: dict[str, Any]
+    profiles_yml: dict[str, Any] | None = None
+    local_packages: list[Project] | None = None
+
+
+def fake_dbt_project_loader(project: Project) -> ResourceLoader:
     project_dir = Path(mkdtemp(prefix="test_pumpkin_"))
 
     default_profiles = {
@@ -71,13 +83,38 @@ def fake_dbt_project_loader(project_yml: dict, project_files: dict[str, Any]) ->
         }
     }
 
-    yaml.dump(project_yml, project_dir / "dbt_project.yml")
-    yaml.dump(default_profiles, project_dir / "profiles.yml")
+    def create_project(root: Path, project: Project):
+        project_yaml = {**{"packages-install-path": str(root / "dbt_packages")}, **project.project_yml.copy()}
+        yaml.dump(project_yaml, root / "dbt_project.yml")
 
-    for path_str, content in project_files.items():
-        path = project_dir / path_str
-        path.parent.mkdir(exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        for path_str, content in project.project_files.items():
+            path = root / path_str
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+
+        if project.local_packages:
+            packages_yml = {}
+
+            for package in project.local_packages:
+                package_name = package.project_yml["name"]
+                package_root = root / "sub_packages" / package_name
+                package_root.mkdir(parents=True, exist_ok=True)
+
+                create_project(package_root, package)
+
+                packages_yml.setdefault("packages", []).append({"local": str(package_root)})
+
+            yaml.dump(packages_yml, root / "packages.yml")
+            # DBT 1.5 can't install local deps on Windows, we just copy packages
+            # Besides that DBT 1.8 and earlier changes CWD when executing `dbt deps`
+            # # https://github.com/dbt-labs/dbt-core/issues/8997
+            # so copying file tree is the easiest fix
+
+            shutil.copytree(root / "sub_packages", root / "dbt_packages")
+
+    create_project(project_dir, project)
+
+    yaml.dump(default_profiles, project_dir / "profiles.yml")
 
     return ResourceLoader(
         project_params=ProjectParams(project_dir=project_dir, profiles_dir=project_dir),
@@ -88,46 +125,47 @@ def fake_dbt_project_loader(project_yml: dict, project_files: dict[str, Any]) ->
 @pytest.fixture
 def loader_multiple_roots():
     return fake_dbt_project_loader(
-        project_yml={
-            "name": "test_pumpkin",
-            "version": "0.1.0",
-            "profile": "test_pumpkin",
-            "model-paths": ["models", "models_{{ var('absent_var', 'extra') }}"],
-            "seed-paths": ["seeds", "seeds_{{ var('absent_var', 'extra') }}"],
-            "snapshot-paths": ["snapshots", "snapshots_{{ var('absent_var', 'extra') }}"],
-        },
-        project_files={
-            "models/customers.sql": "select 1 as id",
-            "models/customers.yml": textwrap.dedent("""\
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+                "model-paths": ["models", "models_{{ var('absent_var', 'extra') }}"],
+                "seed-paths": ["seeds", "seeds_{{ var('absent_var', 'extra') }}"],
+                "snapshot-paths": ["snapshots", "snapshots_{{ var('absent_var', 'extra') }}"],
+            },
+            project_files={
+                "models/customers.sql": "select 1 as id",
+                "models/customers.yml": textwrap.dedent("""\
                 version: 2
                 models:
                   - name: customers
             """),
-            "models_extra/extra_customers.sql": "select 1 as id",
-            "models_extra/extra_customers.yml": textwrap.dedent("""\
+                "models_extra/extra_customers.sql": "select 1 as id",
+                "models_extra/extra_customers.yml": textwrap.dedent("""\
                 version: 2
                 models:
                   - name: extra_customers
             """),
-            "seeds/seed_customers.csv": textwrap.dedent("""\
+                "seeds/seed_customers.csv": textwrap.dedent("""\
                 id,name
                 42,John
             """),
-            "seeds/seed_customers.yml": textwrap.dedent("""\
+                "seeds/seed_customers.yml": textwrap.dedent("""\
                 version: 2
                 seeds:
                   - name: seed_customers
             """),
-            "seeds_extra/seed_extra_customers.csv": textwrap.dedent("""\
+                "seeds_extra/seed_extra_customers.csv": textwrap.dedent("""\
                 id,name
                 42,John
             """),
-            "seeds_extra/seed_extra_customers.yml": textwrap.dedent("""\
+                "seeds_extra/seed_extra_customers.yml": textwrap.dedent("""\
                 version: 2
                 seeds:
                   - name: seed_extra_customers
             """),
-            "models/sources.yml": textwrap.dedent("""\
+                "models/sources.yml": textwrap.dedent("""\
                 version: 2
                 sources:
                   - name: pumpkin
@@ -136,7 +174,7 @@ def loader_multiple_roots():
                       - name: customers
                         identifier: seed_customers
             """),
-            "models_extra/sources.yml": textwrap.dedent("""\
+                "models_extra/sources.yml": textwrap.dedent("""\
                 version: 2
                 sources:
                   - name: extra_pumpkin
@@ -145,51 +183,53 @@ def loader_multiple_roots():
                       - name: customers
                         identifier: seed_customers
             """),
-            "snapshots/customers_snapshot.sql": textwrap.dedent("""\
+                "snapshots/customers_snapshot.sql": textwrap.dedent("""\
                 {% snapshot customers_snapshot %}
                     {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
                     select * from {{ source('pumpkin', 'customers') }}
                 {% endsnapshot %}
             """),
-            "snapshots/customers_snapshot.yml": textwrap.dedent("""\
+                "snapshots/customers_snapshot.yml": textwrap.dedent("""\
                 version: 2
                 snapshots:
                   - name: customers_snapshot
             """),
-            "snapshots_extra/extra_customers_snapshot.sql": textwrap.dedent("""\
+                "snapshots_extra/extra_customers_snapshot.sql": textwrap.dedent("""\
                 {% snapshot extra_customers_snapshot %}
                     {{ config(unique_key='id', target_schema='extra_snapshots', strategy='check', check_cols='all') }}
                     select * from {{ source('extra_pumpkin', 'customers') }}
                 {% endsnapshot %}
             """),
-            "snapshots_extra/extra_customers_snapshot.yml": textwrap.dedent("""\
+                "snapshots_extra/extra_customers_snapshot.yml": textwrap.dedent("""\
                 version: 2
                 snapshots:
                   - name: extra_customers_snapshot
             """),
-        },
+            },
+        )
     )
 
 
 @pytest.fixture
 def loader_configured_paths():
     return fake_dbt_project_loader(
-        project_yml={
-            "name": "test_pumpkin",
-            "version": "0.1.0",
-            "profile": "test_pumpkin",
-            "seeds": {"test_pumpkin": {"+dbt-pumpkin-path": "_seeds.yml"}},
-            "models": {"test_pumpkin": {"+dbt-pumpkin-path": "_models.yml"}},
-            "snapshots": {"test_pumpkin": {"+dbt-pumpkin-path": "_snapshots.yml"}},
-            "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "_sources.yml"}},
-        },
-        project_files={
-            "models/customers.sql": "select 1 as id",
-            "seeds/seed_customers.csv": textwrap.dedent("""\
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+                "seeds": {"test_pumpkin": {"+dbt-pumpkin-path": "_seeds.yml"}},
+                "models": {"test_pumpkin": {"+dbt-pumpkin-path": "_models.yml"}},
+                "snapshots": {"test_pumpkin": {"+dbt-pumpkin-path": "_snapshots.yml"}},
+                "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "_sources.yml"}},
+            },
+            project_files={
+                "models/customers.sql": "select 1 as id",
+                "seeds/seed_customers.csv": textwrap.dedent("""\
                  id,name
                  42,John
              """),
-            "models/sources.yml": textwrap.dedent("""\
+                "models/sources.yml": textwrap.dedent("""\
                  version: 2
                  sources:
                    - name: pumpkin
@@ -198,13 +238,42 @@ def loader_configured_paths():
                        - name: customers
                        - name: orders
              """),
-            "snapshots/customers_snapshot.sql": textwrap.dedent("""\
+                "snapshots/customers_snapshot.sql": textwrap.dedent("""\
                  {% snapshot customers_snapshot %}
                      {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
                      select * from {{ source('pumpkin', 'customers') }}
                  {% endsnapshot %}
              """),
-        },
+            },
+        )
+    )
+
+
+@pytest.fixture
+def loader_with_deps():
+    return fake_dbt_project_loader(
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+            },
+            project_files={
+                "models/customers.sql": "select 1 as id",
+            },
+            local_packages=[
+                Project(
+                    project_yml={
+                        "name": "extra",
+                        "version": "0.1.0",
+                        "profile": "test_pumpkin",
+                    },
+                    project_files={
+                        "models/extra_customers.sql": "select 1 as id",
+                    },
+                )
+            ],
+        )
     )
 
 
@@ -264,6 +333,14 @@ def test_selected_resource_ids_only_models(loader_only_models: ResourceLoader):
     assert loader_only_models.select_resource_ids() == {
         ResourceType.MODEL: {
             ResourceID("model.my_pumpkin.stg_customers"),
+        },
+    }
+
+
+def test_selected_resources_non_project_resources_excluded(loader_with_deps):
+    assert loader_with_deps.select_resource_ids() == {
+        ResourceType.MODEL: {
+            ResourceID("model.test_pumpkin.customers"),
         },
     }
 
