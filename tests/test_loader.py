@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 import textwrap
 from dataclasses import dataclass
@@ -9,7 +8,6 @@ from tempfile import mkdtemp
 from typing import Any
 
 import pytest
-from dbt_pumpkin.dbt_compat import dbtRunner
 from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
@@ -84,7 +82,7 @@ def fake_dbt_project_loader(project: Project) -> ResourceLoader:
     }
 
     def create_project(root: Path, project: Project):
-        project_yaml = {**{"packages-install-path": str(root / "dbt_packages")}, **project.project_yml.copy()}
+        project_yaml = {"packages-install-path": str(root / "dbt_packages"), **project.project_yml.copy()}
         yaml.dump(project_yaml, root / "dbt_project.yml")
 
         for path_str, content in project.project_files.items():
