@@ -54,6 +54,8 @@ class Table:
 @dataclass(frozen=True)
 class ResourceConfig:
     yaml_path_template: str | None
+    numeric_precision_and_scale: bool
+    string_length: bool
 
 
 @dataclass(frozen=True)
