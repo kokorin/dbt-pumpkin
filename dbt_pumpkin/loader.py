@@ -144,8 +144,11 @@ class ResourceLoader:
                     fixed_patch_path = raw_resource.patch_path.removeprefix(patch_path_prefix)
                     yaml_path = Path(fixed_patch_path)
 
+            pumpkin_types = raw_resource.config.get("dbt-pumpkin-types", {})
             config: ResourceConfig = ResourceConfig(
-                yaml_path_template=raw_resource.config.get("dbt-pumpkin-path", None)
+                yaml_path_template=raw_resource.config.get("dbt-pumpkin-path", None),
+                numeric_precision_and_scale=pumpkin_types.get("numeric-precision-and-scale", False),
+                string_length=pumpkin_types.get("string-length", False),
             )
 
             results.append(

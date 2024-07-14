@@ -275,6 +275,37 @@ def loader_with_deps():
     )
 
 
+@pytest.fixture
+def loader_with_exact_types():
+    return fake_dbt_project_loader(
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+                "models": {
+                    "test_pumpkin": {"+dbt-pumpkin-types": {"numeric-precision-and-scale": True, "string-length": True}}
+                },
+            },
+            project_files={
+                "models/customers.sql": "select 1 as id",
+            },
+            local_packages=[
+                Project(
+                    project_yml={
+                        "name": "extra",
+                        "version": "0.1.0",
+                        "profile": "test_pumpkin",
+                    },
+                    project_files={
+                        "models/extra_customers.sql": "select 1 as id",
+                    },
+                )
+            ],
+        )
+    )
+
+
 # TESTS
 
 
@@ -359,7 +390,11 @@ def test_selected_resources(loader_all):
             path=None,
             yaml_path=Path("models/staging/_sources.yml"),
             columns=[],
-            config=ResourceConfig(yaml_path_template=None),
+            config=ResourceConfig(
+                yaml_path_template=None,
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
         ),
         Resource(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
@@ -372,7 +407,11 @@ def test_selected_resources(loader_all):
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
             columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
-            config=ResourceConfig(yaml_path_template="_schema.yml"),
+            config=ResourceConfig(
+                yaml_path_template="_schema.yml",
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
         ),
         Resource(
             unique_id=ResourceID("seed.my_pumpkin.seed_customers"),
@@ -385,7 +424,11 @@ def test_selected_resources(loader_all):
             path=Path("seeds/sources/seed_customers.csv"),
             yaml_path=None,
             columns=[],
-            config=ResourceConfig(yaml_path_template=None),
+            config=ResourceConfig(
+                yaml_path_template=None,
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
         ),
         Resource(
             unique_id=ResourceID("snapshot.my_pumpkin.customers_snapshot"),
@@ -398,9 +441,35 @@ def test_selected_resources(loader_all):
             path=Path("snapshots/sources/customers_snapshot.sql"),
             yaml_path=None,
             columns=[],
-            config=ResourceConfig(yaml_path_template=None),
+            config=ResourceConfig(
+                yaml_path_template=None,
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
         ),
     ].sort(key=sort_order)
+
+
+def test_selected_resources_with_exact_types(loader_with_exact_types):
+    assert loader_with_exact_types.select_resources() == [
+        Resource(
+            unique_id=ResourceID("model.test_pumpkin.customers"),
+            name="customers",
+            source_name=None,
+            database="dev",
+            schema="main",
+            identifier="customers",
+            type=ResourceType.MODEL,
+            path=Path("models/customers.sql"),
+            yaml_path=None,
+            columns=[],
+            config=ResourceConfig(
+                yaml_path_template=None,
+                numeric_precision_and_scale=True,
+                string_length=True,
+            ),
+        ),
+    ]
 
 
 def test_selected_resource_paths_multiroot(loader_multiple_roots):
@@ -436,14 +505,30 @@ def test_selected_resource_yaml_paths_multiroot(loader_multiple_roots):
 def test_selected_resource_config(loader_configured_paths):
     assert {r.unique_id: r.config for r in loader_configured_paths.select_resources()} == {
         ResourceID(unique_id="source.test_pumpkin.pumpkin.customers"): ResourceConfig(
-            yaml_path_template="_sources.yml"
+            yaml_path_template="_sources.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
         ),
-        ResourceID(unique_id="source.test_pumpkin.pumpkin.orders"): ResourceConfig(yaml_path_template="_sources.yml"),
-        ResourceID(unique_id="seed.test_pumpkin.seed_customers"): ResourceConfig(yaml_path_template="_seeds.yml"),
+        ResourceID(unique_id="source.test_pumpkin.pumpkin.orders"): ResourceConfig(
+            yaml_path_template="_sources.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        ResourceID(unique_id="seed.test_pumpkin.seed_customers"): ResourceConfig(
+            yaml_path_template="_seeds.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
         ResourceID(unique_id="snapshot.test_pumpkin.customers_snapshot"): ResourceConfig(
-            yaml_path_template="_snapshots.yml"
+            yaml_path_template="_snapshots.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
         ),
-        ResourceID(unique_id="model.test_pumpkin.customers"): ResourceConfig(yaml_path_template="_models.yml"),
+        ResourceID(unique_id="model.test_pumpkin.customers"): ResourceConfig(
+            yaml_path_template="_models.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     }
 
 

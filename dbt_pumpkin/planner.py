@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceType, Table, TableColumn
 from dbt_pumpkin.exception import PumpkinError
 from dbt_pumpkin.plan import (
     Action,
@@ -125,6 +125,12 @@ class SynchronizationPlanner(ActionPlanner):
     def _quote(self, name: str) -> bool:
         return self._dont_quote_re.match(name) is None
 
+    def _column_type(self, column: TableColumn, config: ResourceConfig) -> str:
+        if column.is_numeric and config.numeric_precision_and_scale or column.is_string and config.string_length:
+            return column.data_type
+
+        return column.dtype
+
     def _resource_plan(self, resource: Resource, table: Table) -> list[Action]:
         resource_column_by_uppercase_name: dict[str, ResourceColumn] = {c.name.upper(): c for c in resource.columns}
         if len(resource_column_by_uppercase_name) != len(resource.columns):
@@ -146,6 +152,8 @@ class SynchronizationPlanner(ActionPlanner):
 
         for table_column in table.columns:
             resource_column = resource_column_by_uppercase_name.get(table_column.name.upper())
+            column_data_type = self._column_type(table_column, resource.config)
+
             if not resource_column:
                 result.append(
                     AddResourceColumn(
@@ -155,13 +163,13 @@ class SynchronizationPlanner(ActionPlanner):
                         source_name=resource.source_name,
                         column_name=table_column.name,
                         column_quote=self._quote(table_column.name),
-                        column_type=table_column.data_type,
+                        column_type=column_data_type,
                     )
                 )
                 resource_column_names.append(table_column.name)
                 continue
 
-            if table_column.data_type != resource_column.data_type:
+            if column_data_type != resource_column.data_type:
                 result.append(
                     UpdateResourceColumn(
                         resource_type=resource.type,
@@ -169,7 +177,7 @@ class SynchronizationPlanner(ActionPlanner):
                         path=resource.yaml_path,
                         source_name=resource.source_name,
                         column_name=resource_column.name,
-                        column_type=table_column.data_type,
+                        column_type=column_data_type,
                     )
                 )
 

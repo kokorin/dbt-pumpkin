@@ -98,9 +98,8 @@ Options:
 
 ### `dbt-pumpkin-path`
 
-`dbt-pumpkin-path` is the only configuration property supported for now.
-
-It sets a path to YAML schema file of a resource. The path can relative to resource (SQL, CSV or PY) or root-relative.
+`dbt-pumpkin-path` sets a path to YAML schema file of a resource. The path can relative to resource (SQL, CSV or PY) or
+root-relative.
 Root-relative paths set path relative to DBT project root directory and start with `/` symbol.
 
 #### Examples
@@ -110,13 +109,13 @@ SQL, CSV or PY file.
 
 ```yaml
 models:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _schema.yml
 seeds:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _schema.yml
 snapshots:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _schema.yml
 ```
 
@@ -127,7 +126,7 @@ Of course, as with any other DBT configuration property, you can re-define `dbt-
 
 ```yaml
 models:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _schema.yml
     intermediate:
       int_my_model:
@@ -139,7 +138,7 @@ replaced with Resource's name and `{parent}` - with folder's name where resource
 
 ```yaml
 models:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _{name}.yml
 ```
 
@@ -150,19 +149,78 @@ In case you have too many resourced defined in a directory, you may specify subd
 
 ```yaml
 models:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     +dbt-pumpkin-path: _schema/{name}.yml
 ```
 
 Source in DBT have no other files except YAML. It means that it's not possible to use relative path
 in `dbt-pumpkin-path` to configure source YAML file location. The only option is to use root-relative paths:
 
-
 ```yaml
 sources:
-  "<YOU_PROJECT_NAME>":
+  "<YOUR_PROJECT_NAME>":
     # root-relative path must start with /
     +dbt-pumpkin-path: /models/staging/_source_{name}.yml
+```
+
+### `dbt-pumpkin-types`
+
+`dbt-pumpkin-types` controls if precision and scale are added to numeric types and if length is added to string types.
+
+#### Examples
+
+You can specify `dbt-pumpkin-types` for Sources, Seeds, Models and Snapshots.
+
+```yaml
+models:
+  "<YOUR_PROJECT_NAME>":
+    +dbt-pumpkin-types:
+      numeric-precision-and-scale: true
+      string-length: true
+sources:
+  "<YOUR_PROJECT_NAME>":
+    +dbt-pumpkin-types:
+      numeric-precision-and-scale: true
+      string-length: true
+seeds:
+  "<YOUR_PROJECT_NAME>":
+    +dbt-pumpkin-types:
+      numeric-precision-and-scale: true
+      string-length: true
+snapshots:
+  "<YOUR_PROJECT_NAME>":
+    +dbt-pumpkin-types:
+      numeric-precision-and-scale: true
+      string-length: true
+```
+
+Or, if you need, you can specify `dbt-pumpkin-types` for specific Resources:
+
+```yaml
+models:
+  "<YOUR_PROJECT_NAME>":
+    my_models:
+        +dbt-pumpkin-types:
+          numeric-precision-and-scale: true
+          string-length: true
+sources:
+  "<YOUR_PROJECT_NAME>":
+    my_source:
+      +dbt-pumpkin-types:
+        numeric-precision-and-scale: true
+        string-length: true
+seeds:
+  "<YOUR_PROJECT_NAME>":
+    my_seed:
+        +dbt-pumpkin-types:
+          numeric-precision-and-scale: true
+          string-length: true
+snapshots:
+  "<YOUR_PROJECT_NAME>":
+    my_snapshot:
+        +dbt-pumpkin-types:
+          numeric-precision-and-scale: true
+          string-length: true
 ```
 
 ## Development

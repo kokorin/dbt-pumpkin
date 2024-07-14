@@ -66,23 +66,48 @@ def no_resources() -> list[Resource]:
 @pytest.fixture
 def no_yaml_path_resources() -> list[Resource]:
     return resources_with_config(
-        source_config=ResourceConfig(yaml_path_template=None), non_source_config=ResourceConfig(yaml_path_template=None)
+        source_config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        non_source_config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
 
 @pytest.fixture
 def separate_yaml_resources() -> list[Resource]:
     return resources_with_config(
-        source_config=ResourceConfig(yaml_path_template="/models/staging/_{name}.yml"),
-        non_source_config=ResourceConfig(yaml_path_template="_{name}.yml"),
+        source_config=ResourceConfig(
+            yaml_path_template="/models/staging/_{name}.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        non_source_config=ResourceConfig(
+            yaml_path_template="_{name}.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
 
 @pytest.fixture
 def actual_yaml_resources() -> [list]:
     return resources_with_config(
-        source_config=ResourceConfig(yaml_path_template="/models/staging/_sources.yml"),
-        non_source_config=ResourceConfig(yaml_path_template="_schema.yml"),
+        source_config=ResourceConfig(
+            yaml_path_template="/models/staging/_sources.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        non_source_config=ResourceConfig(
+            yaml_path_template="_schema.yml",
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
 
@@ -160,7 +185,11 @@ def test_synchronization_only_add():
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[ResourceColumn(name="id", quote=False, data_type="INTEGER", description="")],
-        config=ResourceConfig(yaml_path_template=None),
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
     table = Table(
@@ -174,6 +203,108 @@ def test_synchronization_only_add():
     )
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="NAME",
+            column_quote=False,
+            column_type="VARCHAR",
+        ),
+    ]
+
+
+def test_synchronization_add_numeric_precision_and_scale():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=True,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="NUMBER", data_type="NUMBER(38,0)", is_numeric=True, is_string=False),
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+            ),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="ID",
+            column_quote=False,
+            column_type="NUMBER(38,0)",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="NAME",
+            column_quote=False,
+            column_type="VARCHAR",
+        ),
+    ]
+
+
+def test_synchronization_add_string_length():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=True,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="NUMBER", data_type="NUMBER(38,0)", is_numeric=True, is_string=False),
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+            ),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="ID",
+            column_quote=False,
+            column_type="NUMBER",
+        ),
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -199,9 +330,13 @@ def test_synchronization_only_update():
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
             ResourceColumn(name="id", quote=False, data_type=None, description=""),
-            ResourceColumn(name="name", quote=False, data_type="character varying(256)", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
         ],
-        config=ResourceConfig(yaml_path_template=None),
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
     table = Table(
@@ -226,6 +361,94 @@ def test_synchronization_only_update():
     ]
 
 
+def test_synchronization_update_numeric_precision_and_scale():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="NUMBER", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=True,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="NUMBER", data_type="NUMBER(38,0)", is_numeric=True, is_string=False),
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+            ),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        UpdateResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="id",
+            column_type="NUMBER(38,0)",
+        ),
+    ]
+
+
+def test_synchronization_update_string_length():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="NUMBER", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=True,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="NUMBER", data_type="NUMBER(38,0)", is_numeric=False, is_string=False),
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+            ),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        UpdateResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="name",
+            column_type="character varying(256)",
+        ),
+    ]
+
+
 def test_synchronization_only_delete():
     resource = Resource(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
@@ -239,10 +462,14 @@ def test_synchronization_only_delete():
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
             ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
-            ResourceColumn(name="LAST NAME", quote=True, data_type="character varying(256)", description=""),
-            ResourceColumn(name="name", quote=False, data_type="character varying(256)", description=""),
+            ResourceColumn(name="LAST NAME", quote=True, data_type="VARCHAR", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
         ],
-        config=ResourceConfig(yaml_path_template=None),
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
     table = Table(
@@ -279,10 +506,14 @@ def test_synchronization_all_actions():
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
             ResourceColumn(name="id", quote=False, data_type="SHORT", description=""),
-            ResourceColumn(name="LAST NAME", quote=True, data_type="character varying(256)", description=""),
-            ResourceColumn(name="name", quote=False, data_type="character varying(256)", description=""),
+            ResourceColumn(name="LAST NAME", quote=True, data_type="VARCHAR", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
         ],
-        config=ResourceConfig(yaml_path_template=None),
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
     )
 
     table = Table(
