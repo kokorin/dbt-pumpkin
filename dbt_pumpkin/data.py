@@ -10,6 +10,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+@dataclass
+class YamlFormat:
+    indent: int
+    offset: int
+
+
 class ResourceType(Enum):
     SEED = "seed"
     SOURCE = "source"
