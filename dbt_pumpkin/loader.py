@@ -11,7 +11,16 @@ from typing import TYPE_CHECKING, Callable
 
 from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import (
+    Resource,
+    ResourceColumn,
+    ResourceConfig,
+    ResourceID,
+    ResourceType,
+    Table,
+    TableColumn,
+    YamlFormat,
+)
 from dbt_pumpkin.dbt_compat import (
     EventMsg,
     Manifest,
@@ -191,7 +200,7 @@ class ResourceLoader:
 
     def _create_pumpkin_project(self, project_vars: dict[str, any]) -> Path:
         """
-        Creates fake DBT project with some important configurations copied to "vars" section.
+        Creates fake DBT project with provided "vars" section.
         Allows hacking into DBT without using any internal DBT API.
         """
         src_macros_path = Path(__file__).parent / "macros"
@@ -226,12 +235,31 @@ class ResourceLoader:
 
         return pumpkin_dir
 
-    def _load_project_yml(self):
+    def _load_project_yml(self) -> dict[str, any]:
         project_yml_path = self.locate_project_dir() / "dbt_project.yml"
         if not project_yml_path.exists() or not project_yml_path.is_file():
-            msg = f"dbt_project.yml is not found or doesn't exist: {project_yml_path}"
+            msg = f"dbt_project.yml not found: {project_yml_path}"
             raise PumpkinError(msg)
         return self._yaml.load(project_yml_path)
+
+    def detect_yaml_format(self) -> YamlFormat | None:
+        pumpkin_var = self._load_project_yml().get("vars", {}).get("dbt-pumpkin", {})
+        if not isinstance(pumpkin_var, dict):
+            msg = "YAML property is not an object: vars.dbt-pumpkin"
+            raise PumpkinError(msg)
+
+        yaml_format = pumpkin_var.get("yaml")
+        if not yaml_format:
+            return None
+
+        indent = yaml_format.get("indent")
+        offset = yaml_format.get("offset")
+
+        if indent is None or offset is None:
+            msg = "Both indent and offset must be specified"
+            raise PumpkinError(msg)
+
+        return YamlFormat(indent=int(indent), offset=int(offset))
 
     def _run_operation(
         self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]

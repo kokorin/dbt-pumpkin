@@ -200,9 +200,9 @@ Or, if you need, you can specify `dbt-pumpkin-types` for specific Resources:
 models:
   "<YOUR_PROJECT_NAME>":
     my_models:
-        +dbt-pumpkin-types:
-          numeric-precision-and-scale: true
-          string-length: true
+      +dbt-pumpkin-types:
+        numeric-precision-and-scale: true
+        string-length: true
 sources:
   "<YOUR_PROJECT_NAME>":
     my_source:
@@ -212,15 +212,30 @@ sources:
 seeds:
   "<YOUR_PROJECT_NAME>":
     my_seed:
-        +dbt-pumpkin-types:
-          numeric-precision-and-scale: true
-          string-length: true
+      +dbt-pumpkin-types:
+        numeric-precision-and-scale: true
+        string-length: true
 snapshots:
   "<YOUR_PROJECT_NAME>":
     my_snapshot:
-        +dbt-pumpkin-types:
-          numeric-precision-and-scale: true
-          string-length: true
+      +dbt-pumpkin-types:
+        numeric-precision-and-scale: true
+        string-length: true
+```
+
+### YAML Format
+
+You can configure how `dbt-pumpkin` formats YAML files. For that it's required to add specific DBT variable to your
+project:
+
+```yaml
+vars:
+  dbt-pumpkin:
+    yaml:
+      # indent of properties in a map, default 2
+      indent: 2
+      # offset of items in a list, default 0
+      offset: 2
 ```
 
 ## Development

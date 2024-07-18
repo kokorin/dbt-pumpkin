@@ -1,18 +1,24 @@
 from __future__ import annotations
 
-import shutil
 import textwrap
-from dataclasses import dataclass
 from pathlib import Path
-from tempfile import mkdtemp
-from typing import Any
 
 import pytest
-from ruamel.yaml import YAML
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import (
+    Resource,
+    ResourceColumn,
+    ResourceConfig,
+    ResourceID,
+    ResourceType,
+    Table,
+    TableColumn,
+    YamlFormat,
+)
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
+
+from .mock_project import Project, mock_project
 
 
 def loader(selects: list[str] | None = None, excludes: list[str] | None = None) -> ResourceLoader:
@@ -53,76 +59,18 @@ def loader_only_models() -> ResourceLoader:
     return loader(selects=["resource_type:model"])
 
 
-yaml = YAML(typ="safe")
-
-
-@dataclass
-class Project:
-    project_yml: dict[str, Any]
-    project_files: dict[str, Any]
-    profiles_yml: dict[str, Any] | None = None
-    local_packages: list[Project] | None = None
-
-
-def fake_dbt_project_loader(project: Project) -> ResourceLoader:
-    project_dir = Path(mkdtemp(prefix="test_pumpkin_"))
-
-    default_profiles = {
-        "test_pumpkin": {
-            "target": "test",
-            "outputs": {
-                "test": {
-                    # Comment to stop formatting in 1 line
-                    "type": "duckdb",
-                    "path": f"{project_dir}/dev.duckdb",
-                    "threads": 1,
-                }
-            },
-        }
-    }
-
-    def create_project(root: Path, project: Project):
-        project_yaml = {"packages-install-path": str(root / "dbt_packages"), **project.project_yml.copy()}
-        yaml.dump(project_yaml, root / "dbt_project.yml")
-
-        for path_str, content in project.project_files.items():
-            path = root / path_str
-            path.parent.mkdir(exist_ok=True)
-            path.write_text(content, encoding="utf-8")
-
-        if project.local_packages:
-            packages_yml = {}
-
-            for package in project.local_packages:
-                package_name = package.project_yml["name"]
-                package_root = root / "sub_packages" / package_name
-                package_root.mkdir(parents=True, exist_ok=True)
-
-                create_project(package_root, package)
-
-                packages_yml.setdefault("packages", []).append({"local": str(package_root)})
-
-            yaml.dump(packages_yml, root / "packages.yml")
-            # DBT 1.5 can't install local deps on Windows, we just copy packages
-            # Besides that DBT 1.8 and earlier changes CWD when executing `dbt deps`
-            # # https://github.com/dbt-labs/dbt-core/issues/8997
-            # so copying file tree is the easiest fix
-
-            shutil.copytree(root / "sub_packages", root / "dbt_packages")
-
-    create_project(project_dir, project)
-
-    yaml.dump(default_profiles, project_dir / "profiles.yml")
+def mock_loader(project: Project) -> ResourceLoader:
+    project_dir = mock_project(project)
 
     return ResourceLoader(
-        project_params=ProjectParams(project_dir=project_dir, profiles_dir=project_dir),
+        project_params=ProjectParams(project_dir=str(project_dir), profiles_dir=str(project_dir)),
         resource_params=ResourceParams(),
     )
 
 
 @pytest.fixture
 def loader_multiple_roots():
-    return fake_dbt_project_loader(
+    return mock_loader(
         Project(
             project_yml={
                 "name": "test_pumpkin",
@@ -210,7 +158,7 @@ def loader_multiple_roots():
 
 @pytest.fixture
 def loader_configured_paths():
-    return fake_dbt_project_loader(
+    return mock_loader(
         Project(
             project_yml={
                 "name": "test_pumpkin",
@@ -224,24 +172,24 @@ def loader_configured_paths():
             project_files={
                 "models/customers.sql": "select 1 as id",
                 "seeds/seed_customers.csv": textwrap.dedent("""\
-                 id,name
-                 42,John
-             """),
+                     id,name
+                     42,John
+                 """),
                 "models/sources.yml": textwrap.dedent("""\
-                 version: 2
-                 sources:
-                   - name: pumpkin
-                     schema: main_sources
-                     tables:
-                       - name: customers
-                       - name: orders
-             """),
+                     version: 2
+                     sources:
+                       - name: pumpkin
+                         schema: main_sources
+                         tables:
+                           - name: customers
+                           - name: orders
+                 """),
                 "snapshots/customers_snapshot.sql": textwrap.dedent("""\
-                 {% snapshot customers_snapshot %}
-                     {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
-                     select * from {{ source('pumpkin', 'customers') }}
-                 {% endsnapshot %}
-             """),
+                     {% snapshot customers_snapshot %}
+                         {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
+                         select * from {{ source('pumpkin', 'customers') }}
+                     {% endsnapshot %}
+                 """),
             },
         )
     )
@@ -249,7 +197,7 @@ def loader_configured_paths():
 
 @pytest.fixture
 def loader_with_deps():
-    return fake_dbt_project_loader(
+    return mock_loader(
         Project(
             project_yml={
                 "name": "test_pumpkin",
@@ -277,7 +225,7 @@ def loader_with_deps():
 
 @pytest.fixture
 def loader_with_exact_types():
-    return fake_dbt_project_loader(
+    return mock_loader(
         Project(
             project_yml={
                 "name": "test_pumpkin",
@@ -302,6 +250,36 @@ def loader_with_exact_types():
                     },
                 )
             ],
+        )
+    )
+
+
+@pytest.fixture
+def loader_with_yaml_format_none():
+    return mock_loader(
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+                "vars": {"dbt-pumpkin": {"yaml": None}},
+            },
+            project_files={},
+        )
+    )
+
+
+@pytest.fixture
+def loader_with_yaml_format():
+    return mock_loader(
+        Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+                "vars": {"dbt-pumpkin": {"yaml": {"indent": 2, "offset": 2}}},
+            },
+            project_files={},
         )
     )
 
@@ -595,3 +573,11 @@ def test_selected_resource_tables(loader_all):
 
 def test_selected_resource_tables_no_actual_tables(loader_configured_paths):
     assert [] == loader_configured_paths.lookup_tables()
+
+
+def test_detect_yaml_format_none(loader_with_yaml_format_none):
+    assert loader_with_yaml_format_none.detect_yaml_format() is None
+
+
+def test_detect_yaml_format(loader_with_yaml_format):
+    assert loader_with_yaml_format.detect_yaml_format() == YamlFormat(indent=2, offset=2)
