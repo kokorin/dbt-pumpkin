@@ -169,7 +169,7 @@ class SynchronizationPlanner(ActionPlanner):
                 resource_column_names.append(table_column.name)
                 continue
 
-            if column_data_type != resource_column.data_type:
+            if resource_column.data_type is None or column_data_type.lower() != resource_column.data_type.lower():
                 result.append(
                     UpdateResourceColumn(
                         resource_type=resource.type,

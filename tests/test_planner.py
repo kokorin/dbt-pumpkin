@@ -361,6 +361,41 @@ def test_synchronization_only_update():
     ]
 
 
+def test_synchronization_no_update_when_datatypes_match_ignorecase():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="integer", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VarChar", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+            ),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table]).plan().actions == []
+
+
 def test_synchronization_update_numeric_precision_and_scale():
     resource = Resource(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
