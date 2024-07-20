@@ -25,9 +25,8 @@ class Storage:
 
 
 class DiskStorage(Storage):
-    def __init__(self, root_dir: Path, yaml_format: YamlFormat | None, *, read_only: bool):
+    def __init__(self, root_dir: Path, yaml_format: YamlFormat | None):
         self._root_dir = root_dir
-        self._read_only = read_only
 
         self._yaml = YAML(typ="rt")
         self._yaml.preserve_quotes = True
@@ -51,12 +50,9 @@ class DiskStorage(Storage):
         return result
 
     def save_yaml(self, files: dict[Path, any]):
-        if self._read_only:
-            return
-
         for file, content in files.items():
             resolved_file = self._root_dir / file
-            logger.debug("Saving file: %s", resolved_file)
-            resolved_file = self._root_dir / file
             resolved_file.parent.mkdir(exist_ok=True)
+
+            logger.debug("Saving file: %s", resolved_file)
             self._yaml.dump(content, resolved_file)
