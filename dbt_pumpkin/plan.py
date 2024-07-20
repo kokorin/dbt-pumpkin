@@ -137,9 +137,14 @@ class AddResourceColumn(ResourceColumnAction):
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
-        yaml_columns.append(
-            {"name": self.column_name, **({"quote": True} if self.column_quote else {}), "data_type": self.column_type}
-        )
+
+        # make sure properties are ordered as expected
+        yaml_column = {"name": self.column_name}
+        if self.column_quote:
+            yaml_column["quote"] = True
+        yaml_column["data_type"] = self.column_type
+
+        yaml_columns.append(yaml_column)
 
 
 @dataclass(frozen=True)
@@ -211,6 +216,10 @@ class Plan:
         return {f for a in self.actions for f in a.affected_files()}
 
     def execute(self, storage: Storage):
+        if not self.actions:
+            logger.info("Nothing to do")
+            return
+
         affected_files = self._affected_files()
         logger.info("Files affected by plan: %s", len(affected_files))
 
@@ -220,6 +229,7 @@ class Plan:
             logger.info("Action %s: %s", index + 1, action.describe())
             action.execute(files)
 
+        logger.info("Persisting changes to files: %s", len(affected_files))
         storage.save_yaml(files)
 
     def describe(self) -> str:

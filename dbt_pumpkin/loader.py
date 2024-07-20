@@ -86,10 +86,9 @@ class ResourceLoader:
             raise res.exception
 
         result: dict[ResourceType, set[ResourceID]] = {}
-        resource_counter = Counter()
         # TODO: after dropping DBT 1.5 support we can get project name from Manifest
         # self.load_manifest().metadata.project_name
-        project_name = self._load_project_yml()["name"]
+        project_name = self._parse_project_yml()["name"]
 
         for raw_resource in res.result:
             resource = json.loads(raw_resource)
@@ -100,11 +99,8 @@ class ResourceLoader:
                 res_id = ResourceID(resource["unique_id"])
 
                 result.setdefault(res_type, set()).add(res_id)
-                resource_counter[str(res_type)] += 1
 
-                logger.debug("Selected %s %s", res_type, res_id)
-
-        logger.info("Selected: %s", resource_counter)
+                logger.debug("Selected %s", res_id)
 
         return result
 
@@ -114,17 +110,19 @@ class ResourceLoader:
 
         return self._resource_ids
 
-    @property
-    def _raw_resources(self) -> list[SourceDefinition | SeedNode | ModelNode | SnapshotNode]:
+    def select_raw_resources(self) -> list[SourceDefinition | SeedNode | ModelNode | SnapshotNode]:
         manifest = self.load_manifest()
         results: list[SourceDefinition | SeedNode | ModelNode | SnapshotNode] = []
 
-        selected_resource_ids = self.select_resource_ids()
-
-        for res_type, res_ids in selected_resource_ids.items():
-            resource_by_id = manifest.sources if res_type == ResourceType.SOURCE else manifest.nodes
+        raw_resources_by_type = {
+            ResourceType.SOURCE: manifest.sources,
+            ResourceType.MODEL: manifest.nodes,
+            ResourceType.SEED: manifest.nodes,
+            ResourceType.SNAPSHOT: manifest.nodes,
+        }
+        for res_type, res_ids in self.select_resource_ids().items():
             for res_id in res_ids:
-                raw_resource = resource_by_id[str(res_id)]
+                raw_resource = raw_resources_by_type[res_type][str(res_id)]
                 results.append(raw_resource)
 
         return results
@@ -132,9 +130,14 @@ class ResourceLoader:
     def _do_select_resources(self) -> list[Resource]:
         results: list[Resource] = []
 
-        for raw_resource in self._raw_resources:
+        logger.info("Selecting resources")
+
+        resource_counter = Counter()
+
+        for raw_resource in self.select_raw_resources():
             resource_id = ResourceID(raw_resource.unique_id)
             resource_type = ResourceType(raw_resource.resource_type)
+            resource_counter[str(resource_type)] += 1
 
             source_name: str = None
             path: Path = None
@@ -160,6 +163,8 @@ class ResourceLoader:
                 string_length=pumpkin_types.get("string-length", False),
             )
 
+            logger.info("Selected %s", resource_id)
+
             results.append(
                 Resource(
                     unique_id=resource_id,
@@ -178,6 +183,8 @@ class ResourceLoader:
                     config=config,
                 )
             )
+
+        logger.info("Selected: %s", resource_counter)
 
         return results
 
@@ -209,7 +216,7 @@ class ResourceLoader:
             msg = f"Macros directory is not found or doesn't exist: {src_macros_path}"
             raise PumpkinError(msg)
 
-        project_yml = self._load_project_yml()
+        project_yml = self._parse_project_yml()
 
         pumpkin_yml = {
             "name": "dbt_pumpkin",
@@ -228,14 +235,16 @@ class ResourceLoader:
         shutil.copytree(src_macros_path, target_macros_dir)
 
         target_project_yml = pumpkin_dir / "dbt_project.yml"
-        logger.debug("Creating temp DBT project at %s", target_project_yml)
+        logger.debug("Creating temp dbt_project.yml at %s", target_project_yml)
         self._yaml.dump(pumpkin_yml, target_project_yml)
 
         logger.debug("Created temp DBT project %s", pumpkin_dir)
 
         return pumpkin_dir
 
-    def _load_project_yml(self) -> dict[str, any]:
+    def _parse_project_yml(self) -> dict[str, any]:
+        logger.debug("Parsing dbt_project.yml")
+
         project_yml_path = self.locate_project_dir() / "dbt_project.yml"
         if not project_yml_path.exists() or not project_yml_path.is_file():
             msg = f"dbt_project.yml not found: {project_yml_path}"
@@ -243,13 +252,14 @@ class ResourceLoader:
         return self._yaml.load(project_yml_path)
 
     def detect_yaml_format(self) -> YamlFormat | None:
-        pumpkin_var = self._load_project_yml().get("vars", {}).get("dbt-pumpkin", {})
+        pumpkin_var = self._parse_project_yml().get("vars", {}).get("dbt-pumpkin", {})
         if not isinstance(pumpkin_var, dict):
             msg = "YAML property is not an object: vars.dbt-pumpkin"
             raise PumpkinError(msg)
 
         yaml_format = pumpkin_var.get("yaml")
         if not yaml_format:
+            logger.info("No YAML format set in DBT project vars, using default")
             return None
 
         indent = yaml_format.get("indent")
@@ -291,7 +301,7 @@ class ResourceLoader:
     def _do_lookup_tables(self) -> list[Table]:
         logger.info("Looking up tables")
 
-        raw_resources = self._raw_resources
+        raw_resources = self.select_raw_resources()
         project_vars = {
             "lookup_tables_args": {
                 str(resource.unique_id): [resource.database, resource.schema, resource.identifier]
