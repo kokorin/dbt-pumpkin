@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from dbt_pumpkin.data import ResourceType
@@ -208,6 +209,11 @@ class ReorderResourceColumns(ResourceColumnAction):
         yaml_columns.extend(reordered_columns)
 
 
+class ExecutionMode(Enum):
+    RUN = "run"
+    DRY_RUN = "dry_run"
+
+
 class Plan:
     def __init__(self, actions: list[Action]):
         self.actions = actions
@@ -215,7 +221,7 @@ class Plan:
     def _affected_files(self) -> set[Path]:
         return {f for a in self.actions for f in a.affected_files()}
 
-    def execute(self, storage: Storage):
+    def execute(self, storage: Storage, mode: ExecutionMode):
         if not self.actions:
             logger.info("Nothing to do")
             return
@@ -229,8 +235,9 @@ class Plan:
             logger.info("Action %s: %s", index + 1, action.describe())
             action.execute(files)
 
-        logger.info("Persisting changes to files: %s", len(affected_files))
-        storage.save_yaml(files)
+        if mode == ExecutionMode.RUN:
+            logger.info("Persisting changes to files: %s", len(affected_files))
+            storage.save_yaml(files)
 
     def describe(self) -> str:
         return "\n".join(a.describe() for a in self.actions)

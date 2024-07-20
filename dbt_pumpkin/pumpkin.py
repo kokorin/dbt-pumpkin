@@ -1,8 +1,10 @@
 import logging
+from typing import Callable
 
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
-from dbt_pumpkin.planner import BootstrapPlanner, RelocationPlanner, SynchronizationPlanner
+from dbt_pumpkin.plan import ExecutionMode
+from dbt_pumpkin.planner import ActionPlanner, BootstrapPlanner, RelocationPlanner, SynchronizationPlanner
 from dbt_pumpkin.storage import DiskStorage
 
 logger = logging.getLogger(__name__)
@@ -13,33 +15,37 @@ class Pumpkin:
         self.project_params = project_params
         self.resource_params = resource_params
 
-    def bootstrap(self, *, dry_run: bool):
+    def _execute(self, create_planner: Callable[[ResourceLoader], ActionPlanner], *, dry_run: bool):
         loader = ResourceLoader(self.project_params, self.resource_params)
-        resources = loader.select_resources()
 
-        planner = BootstrapPlanner(resources)
+        logger.debug("Creating action planner")
+        planner = create_planner(loader)
         plan = planner.plan()
 
-        storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        plan.execute(storage)
+        storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format())
+        mode = ExecutionMode.DRY_RUN if dry_run else ExecutionMode.RUN
+
+        logger.info("Plan execution mode: %s", mode)
+        plan.execute(storage, mode)
+
+    def bootstrap(self, *, dry_run: bool):
+        def create_planner(loader: ResourceLoader) -> ActionPlanner:
+            resources = loader.select_resources()
+            return BootstrapPlanner(resources)
+
+        self._execute(create_planner, dry_run=dry_run)
 
     def relocate(self, *, dry_run: bool):
-        loader = ResourceLoader(self.project_params, self.resource_params)
-        resources = loader.select_resources()
+        def create_planner(loader: ResourceLoader) -> ActionPlanner:
+            resources = loader.select_resources()
+            return RelocationPlanner(resources)
 
-        planner = RelocationPlanner(resources)
-        plan = planner.plan()
-
-        storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        plan.execute(storage)
+        self._execute(create_planner, dry_run=dry_run)
 
     def synchronize(self, *, dry_run: bool):
-        loader = ResourceLoader(self.project_params, self.resource_params)
-        resources = loader.select_resources()
-        tables = loader.lookup_tables()
+        def create_planner(loader: ResourceLoader) -> ActionPlanner:
+            resources = loader.select_resources()
+            tables = loader.lookup_tables()
+            return SynchronizationPlanner(resources, tables)
 
-        planner = SynchronizationPlanner(resources, tables)
-        plan = planner.plan()
-
-        storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        plan.execute(storage)
+        self._execute(create_planner, dry_run=dry_run)
