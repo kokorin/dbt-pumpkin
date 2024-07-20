@@ -15,42 +15,31 @@ class Pumpkin:
 
     def bootstrap(self, *, dry_run: bool):
         loader = ResourceLoader(self.project_params, self.resource_params)
-
-        logger.info("Loading resources")
         resources = loader.select_resources()
 
         planner = BootstrapPlanner(resources)
         plan = planner.plan()
 
         storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        logger.info("Executing actions")
         plan.execute(storage)
 
     def relocate(self, *, dry_run: bool):
         loader = ResourceLoader(self.project_params, self.resource_params)
-
-        logger.info("Loading resources")
         resources = loader.select_resources()
 
         planner = RelocationPlanner(resources)
         plan = planner.plan()
 
         storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        logger.info("Executing actions")
         plan.execute(storage)
 
     def synchronize(self, *, dry_run: bool):
         loader = ResourceLoader(self.project_params, self.resource_params)
-
-        logger.info("Loading resources")
         resources = loader.select_resources()
-
-        logger.info("Looking up tables")
         tables = loader.lookup_tables()
 
         planner = SynchronizationPlanner(resources, tables)
         plan = planner.plan()
 
         storage = DiskStorage(loader.locate_project_dir(), loader.detect_yaml_format(), read_only=dry_run)
-        logger.info("Executing actions")
         plan.execute(storage)

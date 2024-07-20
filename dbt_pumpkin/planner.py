@@ -30,6 +30,8 @@ class BootstrapPlanner(ActionPlanner):
         self._resources = resources
 
     def plan(self) -> Plan:
+        logger.info("Planning actions for %s resources", len(self._resources))
+
         actions: list[Action] = []
         path_resolver = PathResolver()
 
@@ -39,16 +41,17 @@ class BootstrapPlanner(ActionPlanner):
                 continue
 
             if resource.yaml_path:
-                # Resource already initialized
+                logger.debug("Resource already bootstrapped: %s", resource.unique_id)
                 continue
 
             if not resource.config or not resource.config.yaml_path_template:
                 logger.warning(
-                    "Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
-                    resource.type,
-                    resource.name,
+                    "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
+                    resource.unique_id,
                 )
                 continue
+
+            logger.debug("Planned bootstrap action: %s", resource.unique_id)
 
             yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
             actions.append(BootstrapResource(resource.type, resource.name, yaml_path))
@@ -61,6 +64,8 @@ class RelocationPlanner(ActionPlanner):
         self._resources = resources
 
     def plan(self) -> Plan:
+        logger.info("Planning actions for %s resources", len(self._resources))
+
         actions: list[Action] = []
         path_resolver = PathResolver()
 
@@ -74,22 +79,21 @@ class RelocationPlanner(ActionPlanner):
 
             if not resource.yaml_path:
                 logger.warning(
-                    "Resource %s %s has no YAML schema definition, run bootstrap command instead",
-                    resource.type,
-                    resource.name,
+                    "Resource has no YAML schema defined: %s. Run bootstrap command first",
+                    resource.unique_id,
                 )
                 continue
 
             if not resource.config or not resource.config.yaml_path_template:
                 logger.warning(
-                    "Resource %s %s has no YAML path defined, add dbt-pumpkin-path configuration property",
-                    resource.type,
-                    resource.name,
+                    "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
+                    resource.unique_id,
                 )
                 continue
 
             to_yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
             if resource.yaml_path != to_yaml_path:
+                logger.debug("Planned relocate action: %s", resource.unique_id)
                 actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
 
         for source_name, source_tables in sources.items():
@@ -103,7 +107,7 @@ class RelocationPlanner(ActionPlanner):
 
             if not config or not config.yaml_path_template:
                 logger.warning(
-                    "Source %s has no YAML path defined, add dbt-pumpkin-path configuration property", source_name
+                    "Source has no YAML path defined: %s. Add dbt-pumpkin-path configuration property", source_name
                 )
                 continue
 
@@ -111,6 +115,7 @@ class RelocationPlanner(ActionPlanner):
             to_yaml_path = path_resolver.resolve(config.yaml_path_template, source_name, resource_path=None)
 
             if yaml_path != to_yaml_path:
+                logger.debug("Planned relocate action: %s", source_name)
                 actions.append(RelocateResource(ResourceType.SOURCE, source_name, yaml_path, to_yaml_path))
 
         return Plan(actions)
@@ -155,6 +160,7 @@ class SynchronizationPlanner(ActionPlanner):
             column_data_type = self._column_type(table_column, resource.config)
 
             if not resource_column:
+                logger.debug("Planned add column action: %s %s", table_column.name, resource.unique_id)
                 result.append(
                     AddResourceColumn(
                         resource_type=resource.type,
@@ -170,6 +176,7 @@ class SynchronizationPlanner(ActionPlanner):
                 continue
 
             if resource_column.data_type is None or column_data_type.lower() != resource_column.data_type.lower():
+                logger.debug("Planned update column action: %s %s", table_column.name, resource.unique_id)
                 result.append(
                     UpdateResourceColumn(
                         resource_type=resource.type,
@@ -184,6 +191,7 @@ class SynchronizationPlanner(ActionPlanner):
         for resource_column in resource.columns:
             table_column = table_column_name_by_uppercase_name.get(resource_column.name.upper())
             if not table_column:
+                logger.debug("Planned delete column action: %s %s", resource_column.name, resource.unique_id)
                 result.append(
                     DeleteResourceColumn(
                         resource_type=resource.type,
@@ -199,6 +207,7 @@ class SynchronizationPlanner(ActionPlanner):
         table_column_uppercase_names = [c.name.upper() for c in table.columns]
 
         if resource_column_uppercase_names != table_column_uppercase_names:
+            logger.debug("Planned reorder column action: %s", resource.unique_id)
             column_order = [resource_column_by_uppercase_name.get(c.name.upper(), c).name for c in table.columns]
             result.append(
                 ReorderResourceColumns(
@@ -213,8 +222,9 @@ class SynchronizationPlanner(ActionPlanner):
         return result
 
     def plan(self) -> Plan:
-        actions: list[Action] = []
+        logger.info("Planning actions for %s resources", len(self._resources))
 
+        actions: list[Action] = []
         table_by_id = {t.resource_id: t for t in self._tables}
 
         for resource in self._resources:
@@ -225,8 +235,7 @@ class SynchronizationPlanner(ActionPlanner):
                 continue
             if not resource.yaml_path:
                 logger.warning(
-                    "Resource %s %s has no YAML path defined, consider using bootstrap command",
-                    resource.type,
+                    "Resource has no YAML path defined: %s. Consider using bootstrap command first",
                     resource.unique_id,
                 )
                 continue
