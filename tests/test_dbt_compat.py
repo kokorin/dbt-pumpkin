@@ -4,13 +4,24 @@ from dbt_pumpkin.dbt_compat import prepare_monkey_patches
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 
+from .mock_project import Project, mock_project
+
 
 def new_loader() -> ResourceLoader:
-    return ResourceLoader(
-        project_params=ProjectParams(
-            "tests/my_pumpkin",
-            "tests/my_pumpkin",
+    path = mock_project(
+        project=Project(
+            project_yml={
+                "name": "test_pumpkin",
+                "version": "0.1.0",
+                "profile": "test_pumpkin",
+            },
+            project_files={"models/customers.sql": "select 1 as id"},
         ),
+        build=True,
+    )
+
+    return ResourceLoader(
+        project_params=ProjectParams(str(path), str(path)),
         resource_params=ResourceParams(),
     )
 

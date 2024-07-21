@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkdtemp
 
+from dbt.cli.main import dbtRunner, dbtRunnerResult
 from ruamel.yaml import YAML
 
 
@@ -25,7 +26,7 @@ def _do_create_project(root: Path, project: Project):
 
     for path_str, content in project.project_files.items():
         path = root / path_str
-        path.parent.mkdir(exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
     if project.local_packages:
@@ -49,7 +50,7 @@ def _do_create_project(root: Path, project: Project):
         shutil.copytree(root / "sub_packages", root / "dbt_packages")
 
 
-def mock_project(project: Project) -> Path:
+def mock_project(project: Project, *, build=False) -> Path:
     project_dir = Path(mkdtemp(prefix="test_pumpkin_"))
 
     default_profiles = {
@@ -69,5 +70,13 @@ def mock_project(project: Project) -> Path:
     _do_create_project(project_dir, project)
 
     _yaml.dump(default_profiles, project_dir / "profiles.yml")
+
+    if build:
+        args = ["build", "--project-dir", str(project_dir), "--profiles-dir", str(project_dir)]
+        res: dbtRunnerResult = dbtRunner().invoke(args)
+
+        if not res.success:
+            msg = f"Mock project build failed. Exception: {res.exception}"
+            raise Exception(msg)  # noqa: TRY002
 
     return project_dir

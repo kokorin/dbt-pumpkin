@@ -1,9 +1,0 @@
-my_pumpkin:
-  outputs:
-    dev:
-      type: duckdb
-      # TEMP env var is defined only on Windows
-      path: "{{ env_var('TEMP', '/tmp') }}/dev.duckdb"
-      threads: 1
-
-  target: dev

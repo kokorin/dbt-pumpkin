@@ -4,6 +4,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import yaml
 
 from dbt_pumpkin.data import (
     Resource,
@@ -21,42 +22,103 @@ from dbt_pumpkin.params import ProjectParams, ResourceParams
 from .mock_project import Project, mock_project
 
 
-def loader(selects: list[str] | None = None, excludes: list[str] | None = None) -> ResourceLoader:
-    return ResourceLoader(
-        project_params=ProjectParams(
-            "tests/my_pumpkin",
-            "tests/my_pumpkin",
+@pytest.fixture(scope="module")
+def my_pumpkin() -> Path:
+    return mock_project(
+        project=Project(
+            project_yml=yaml.safe_load(
+                textwrap.dedent("""\
+                name: my_pumpkin
+                version: 1.0.0
+                profile: test_pumpkin
+                seeds:
+                  my_pumpkin:
+                    sources:
+                      +schema: sources
+                snapshots:
+                  my_pumpkin:
+                    sources:
+                      +target_schema: sources_snapshot
+                models:
+                  my_pumpkin:
+                    +dbt-pumpkin-path: _schema.yml
+             """)
+            ),
+            project_files={
+                "models/staging/_schema.yml": textwrap.dedent("""\
+                    version: 2
+                    models:
+                      - name: stg_customers
+                        columns:
+                          - name: id
+                            tests:
+                              - not_null
+                              - unique
+                """),
+                "models/staging/_sources.yml": textwrap.dedent("""\
+                    version: 2
+                    sources:
+                      - name: pumpkin
+                        schema: main_sources
+                        tables:
+                          - name: customers
+                            identifier: seed_customers
+                """),
+                "models/staging/stg_customers.sql": "select 42 as id, 'Jon Snow' as name",
+                "seeds/sources/seed_customers.csv": textwrap.dedent("""\
+                    id,name
+                    1,Jon Snow
+                """),
+                "snapshots/sources/customers_snapshot.sql": textwrap.dedent("""\
+                    {% snapshot customers_snapshot %}
+                    {{ config(unique_key='id', strategy='check', check_cols='all',) }}
+                        select 41 as id, 'Eddard Stark' as name
+                    {% endsnapshot %}
+                """),
+            },
         ),
-        resource_params=ResourceParams(select=selects, exclude=excludes),
+        build=True,
     )
 
 
-# FIXTURES
+@pytest.fixture
+def loader_all(my_pumpkin) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(),
+    )
 
 
 @pytest.fixture
-def loader_all() -> ResourceLoader:
-    return loader()
+def loader_only_sources(my_pumpkin) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(select=["source:*"]),
+    )
 
 
 @pytest.fixture
-def loader_only_sources() -> ResourceLoader:
-    return loader(selects=["source:*"])
+def loader_only_seeds(my_pumpkin) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(select=["resource_type:seed"]),
+    )
 
 
 @pytest.fixture
-def loader_only_seeds() -> ResourceLoader:
-    return loader(selects=["resource_type:seed"])
+def loader_only_snapshots(my_pumpkin) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(select=["resource_type:snapshot"]),
+    )
 
 
 @pytest.fixture
-def loader_only_snapshots() -> ResourceLoader:
-    return loader(selects=["resource_type:snapshot"])
-
-
-@pytest.fixture
-def loader_only_models() -> ResourceLoader:
-    return loader(selects=["resource_type:model"])
+def loader_only_models(my_pumpkin) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(select=["resource_type:model"]),
+    )
 
 
 def mock_loader(project: Project) -> ResourceLoader:

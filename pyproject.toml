@@ -47,10 +47,6 @@ dependencies = [
 [tool.hatch.envs.default.env-vars]
 EXPECTED_PYTHON_VERSION = "3.12"
 EXPECTED_DBT_VERSION = "1.8"
-DBT_PROJECT_DIR = "tests/my_pumpkin"
-DBT_PROFILES_DIR = "tests/my_pumpkin"
-# There is an issue with dbt clean when running ouutside project
-DBT_CLEAN_PROJECT_FILES_ONLY = "False"
 
 [tool.hatch.envs.hatch-test]
 dependencies = [

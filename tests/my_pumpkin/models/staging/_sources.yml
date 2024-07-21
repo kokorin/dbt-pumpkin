@@ -1,7 +1,0 @@
-version: 2
-sources:
-  - name: pumpkin
-    schema: main_sources
-    tables:
-      - name: customers
-        identifier: seed_customers
