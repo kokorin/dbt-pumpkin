@@ -9,7 +9,9 @@ import yaml
 from dbt.cli.main import dbtRunner, dbtRunnerResult
 
 
-def mock_project(files: dict[str, str], local_packages: dict[str, dict[str, str]] = None, build=False) -> Path:
+def mock_project(
+    files: dict[str, str], *, local_packages: dict[str, dict[str, str]] | None = None, build=False
+) -> Path:
     project_dir = Path(mkdtemp(prefix="test_pumpkin_"))
 
     project_yml = yaml.safe_load(textwrap.dedent(files.pop("dbt_project.yml")))
@@ -41,7 +43,6 @@ def mock_project(files: dict[str, str], local_packages: dict[str, dict[str, str]
             packages.append({"local": str(package_dir)})
 
             for path_str, content in package_files.items():
-
                 path = package_dir / path_str
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(textwrap.dedent(content))

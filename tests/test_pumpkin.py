@@ -51,7 +51,7 @@ def project_path() -> Path:
                  {% endsnapshot %}
              """),
         },
-        build=True
+        build=True,
     )
 
 

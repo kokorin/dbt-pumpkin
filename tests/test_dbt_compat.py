@@ -17,14 +17,14 @@ def dbt_project_path() -> str:
                     version: "0.1.0"
                     profile: test_pumpkin
                 """,
-            "models/customers.sql": "select 1 as id, null as test_dbt_compat"
+            "models/customers.sql": "select 1 as id, null as test_dbt_compat",
         },
         build=True,
     )
     return str(path)
 
 
-def new_loader(path:str) -> ResourceLoader:
+def new_loader(path: str) -> ResourceLoader:
     return ResourceLoader(
         project_params=ProjectParams(path, path),
         resource_params=ResourceParams(),

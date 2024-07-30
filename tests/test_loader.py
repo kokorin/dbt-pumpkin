@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import pytest
-import yaml
 
 from dbt_pumpkin.data import (
     Resource,
