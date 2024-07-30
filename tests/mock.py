@@ -37,13 +37,14 @@ def mock_project(files: dict[str, str], local_packages: dict[str, dict[str, str]
         packages_yml = {"packages": (packages := [])}
 
         for package_name, package_files in local_packages.items():
+            package_dir = packages_dir / package_name
+            packages.append({"local": str(package_dir)})
+
             for path_str, content in package_files.items():
-                package_dir = packages_dir / package_name
-                package_dir.mkdir(parents=True, exist_ok=True)
 
-                (package_dir / path_str).write_text(content)
-
-                packages.append({"local": str(package_dir)})
+                path = package_dir / path_str
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(textwrap.dedent(content))
 
         (project_dir / "packages.yml").write_text(yaml.dump(packages_yml))
 
@@ -59,7 +60,7 @@ def mock_project(files: dict[str, str], local_packages: dict[str, dict[str, str]
     for path_str, content in files.items():
         path = project_dir / path_str
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(textwrap.dedent(content))
 
     if build:
         args = ["build", "--project-dir", str(project_dir), "--profiles-dir", str(project_dir)]

@@ -19,15 +19,14 @@ from dbt_pumpkin.data import (
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 
-from .mock import MockProject, mock_project
+from .mock import mock_project
 
 
-@pytest.fixture # (scope="module")
+@pytest.fixture(scope="module")
 def my_pumpkin() -> Path:
     return mock_project(
-        project=MockProject(
-            project_yml=yaml.safe_load(
-                textwrap.dedent("""\
+        files={
+            "dbt_project.yml": """\
                 name: my_pumpkin
                 version: 1.0.0
                 profile: test_pumpkin
@@ -42,41 +41,38 @@ def my_pumpkin() -> Path:
                 models:
                   my_pumpkin:
                     +dbt-pumpkin-path: _schema.yml
-             """)
-            ),
-            project_files={
-                "models/staging/_schema.yml": textwrap.dedent("""\
-                    version: 2
-                    models:
-                      - name: stg_customers
-                        columns:
-                          - name: id
-                            tests:
-                              - not_null
-                              - unique
-                """),
-                "models/staging/_sources.yml": textwrap.dedent("""\
-                    version: 2
-                    sources:
-                      - name: pumpkin
-                        schema: main_sources
-                        tables:
-                          - name: customers
-                            identifier: seed_customers
-                """),
-                "models/staging/stg_customers.sql": "select 42 as id, 'Jon Snow' as name",
-                "seeds/sources/seed_customers.csv": textwrap.dedent("""\
-                    id,name
-                    1,Jon Snow
-                """),
-                "snapshots/sources/customers_snapshot.sql": textwrap.dedent("""\
-                    {% snapshot customers_snapshot %}
-                    {{ config(unique_key='id', strategy='check', check_cols='all',) }}
-                        select 41 as id, 'Eddard Stark' as name
-                    {% endsnapshot %}
-                """),
-            },
-        ),
+            """,
+            "models/staging/_schema.yml": """\
+                version: 2
+                models:
+                  - name: stg_customers
+                    columns:
+                      - name: id
+                        tests:
+                          - not_null
+                          - unique
+            """,
+            "models/staging/_sources.yml": """\
+                version: 2
+                sources:
+                  - name: pumpkin
+                    schema: main_sources
+                    tables:
+                      - name: customers
+                        identifier: seed_customers
+            """,
+            "models/staging/stg_customers.sql": "select 42 as id, 'Jon Snow' as name",
+            "seeds/sources/seed_customers.csv": """\
+                id,name
+                1,Jon Snow
+            """,
+            "snapshots/sources/customers_snapshot.sql": """\
+                {% snapshot customers_snapshot %}
+                {{ config(unique_key='id', strategy='check', check_cols='all',) }}
+                    select 41 as id, 'Eddard Stark' as name
+                {% endsnapshot %}
+            """,
+        },
         build=True,
     )
 
@@ -121,9 +117,7 @@ def loader_only_models(my_pumpkin) -> ResourceLoader:
     )
 
 
-def mock_loader(project: MockProject) -> ResourceLoader:
-    project_dir = mock_project(project)
-
+def mock_loader(project_dir: Path) -> ResourceLoader:
     return ResourceLoader(
         project_params=ProjectParams(project_dir=str(project_dir), profiles_dir=str(project_dir)),
         resource_params=ResourceParams(),
@@ -133,86 +127,86 @@ def mock_loader(project: MockProject) -> ResourceLoader:
 @pytest.fixture
 def loader_multiple_roots():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "model-paths": ["models", "models_{{ var('absent_var', 'extra') }}"],
-                "seed-paths": ["seeds", "seeds_{{ var('absent_var', 'extra') }}"],
-                "snapshot-paths": ["snapshots", "snapshots_{{ var('absent_var', 'extra') }}"],
-            },
-            project_files={
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    model-paths: ["models", "models_{{ var('absent_var', 'extra') }}"]
+                    seed-paths: ["seeds", "seeds_{{ var('absent_var', 'extra') }}"]
+                    snapshot-paths: ["snapshots", "snapshots_{{ var('absent_var', 'extra') }}"]
+                """,
                 "models/customers.sql": "select 1 as id",
-                "models/customers.yml": textwrap.dedent("""\
-                version: 2
-                models:
-                  - name: customers
-            """),
+                "models/customers.yml": """\
+                    version: 2
+                    models:
+                      - name: customers
+                """,
                 "models_extra/extra_customers.sql": "select 1 as id",
-                "models_extra/extra_customers.yml": textwrap.dedent("""\
-                version: 2
-                models:
-                  - name: extra_customers
-            """),
-                "seeds/seed_customers.csv": textwrap.dedent("""\
-                id,name
-                42,John
-            """),
-                "seeds/seed_customers.yml": textwrap.dedent("""\
-                version: 2
-                seeds:
-                  - name: seed_customers
-            """),
-                "seeds_extra/seed_extra_customers.csv": textwrap.dedent("""\
-                id,name
-                42,John
-            """),
-                "seeds_extra/seed_extra_customers.yml": textwrap.dedent("""\
-                version: 2
-                seeds:
-                  - name: seed_extra_customers
-            """),
-                "models/sources.yml": textwrap.dedent("""\
-                version: 2
-                sources:
-                  - name: pumpkin
-                    schema: main_sources
-                    tables:
-                      - name: customers
-                        identifier: seed_customers
-            """),
-                "models_extra/sources.yml": textwrap.dedent("""\
-                version: 2
-                sources:
-                  - name: extra_pumpkin
-                    schema: main_sources
-                    tables:
-                      - name: customers
-                        identifier: seed_customers
-            """),
-                "snapshots/customers_snapshot.sql": textwrap.dedent("""\
-                {% snapshot customers_snapshot %}
-                    {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
-                    select * from {{ source('pumpkin', 'customers') }}
-                {% endsnapshot %}
-            """),
-                "snapshots/customers_snapshot.yml": textwrap.dedent("""\
-                version: 2
-                snapshots:
-                  - name: customers_snapshot
-            """),
-                "snapshots_extra/extra_customers_snapshot.sql": textwrap.dedent("""\
-                {% snapshot extra_customers_snapshot %}
-                    {{ config(unique_key='id', target_schema='extra_snapshots', strategy='check', check_cols='all') }}
-                    select * from {{ source('extra_pumpkin', 'customers') }}
-                {% endsnapshot %}
-            """),
-                "snapshots_extra/extra_customers_snapshot.yml": textwrap.dedent("""\
-                version: 2
-                snapshots:
-                  - name: extra_customers_snapshot
-            """),
+                "models_extra/extra_customers.yml": """\
+                    version: 2
+                    models:
+                      - name: extra_customers
+                """,
+                "seeds/seed_customers.csv": """\
+                    id,name
+                    42,John
+                """,
+                "seeds/seed_customers.yml": """\
+                    version: 2
+                    seeds:
+                      - name: seed_customers
+                """,
+                "seeds_extra/seed_extra_customers.csv": """\
+                    id,name
+                    42,John
+                """,
+                "seeds_extra/seed_extra_customers.yml": """\
+                    version: 2
+                    seeds:
+                      - name: seed_extra_customers
+                """,
+                "models/sources.yml": """\
+                    version: 2
+                    sources:
+                      - name: pumpkin
+                        schema: main_sources
+                        tables:
+                          - name: customers
+                            identifier: seed_customers
+                """,
+                "models_extra/sources.yml": """\
+                    version: 2
+                    sources:
+                      - name: extra_pumpkin
+                        schema: main_sources
+                        tables:
+                          - name: customers
+                            identifier: seed_customers
+                """,
+                "snapshots/customers_snapshot.sql": """\
+                    {% snapshot customers_snapshot %}
+                        {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
+                        select * from {{ source('pumpkin', 'customers') }}
+                    {% endsnapshot %}
+                """,
+                "snapshots/customers_snapshot.yml": """\
+                    version: 2
+                    snapshots:
+                      - name: customers_snapshot
+                """,
+                "snapshots_extra/extra_customers_snapshot.sql": """\
+                    {% snapshot extra_customers_snapshot %}
+                        {{ config(unique_key='id', target_schema='extra_snapshots', strategy='check', check_cols='all') }}
+                        select * from {{ source('extra_pumpkin', 'customers') }}
+                    {% endsnapshot %}
+                """,
+                "snapshots_extra/extra_customers_snapshot.yml": """\
+                    version: 2
+                    snapshots:
+                      - name: extra_customers_snapshot
+                """,
             },
         )
     )
@@ -221,23 +215,31 @@ def loader_multiple_roots():
 @pytest.fixture
 def loader_configured_paths():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "seeds": {"test_pumpkin": {"+dbt-pumpkin-path": "_seeds.yml"}},
-                "models": {"test_pumpkin": {"+dbt-pumpkin-path": "_models.yml"}},
-                "snapshots": {"test_pumpkin": {"+dbt-pumpkin-path": "_snapshots.yml"}},
-                "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "_sources.yml"}},
-            },
-            project_files={
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    seeds:
+                      test_pumpkin:
+                        +dbt-pumpkin-path: _seeds.yml
+                    models:
+                      test_pumpkin:
+                         +dbt-pumpkin-path: _models.yml
+                    snapshots:
+                      test_pumpkin:
+                        +dbt-pumpkin-path: _snapshots.yml
+                    sources:
+                      test_pumpkin:
+                        +dbt-pumpkin-path: _sources.yml
+                """,
                 "models/customers.sql": "select 1 as id, 'test' as loader_configured_paths",
-                "seeds/seed_customers.csv": textwrap.dedent("""\
+                "seeds/seed_customers.csv": """\
                      id,name
                      42,John
-                 """),
-                "models/sources.yml": textwrap.dedent("""\
+                 """,
+                "models/sources.yml": """\
                      version: 2
                      sources:
                        - name: pumpkin
@@ -245,13 +247,13 @@ def loader_configured_paths():
                          tables:
                            - name: customers
                            - name: orders
-                 """),
-                "snapshots/customers_snapshot.sql": textwrap.dedent("""\
+                 """,
+                "snapshots/customers_snapshot.sql": """\
                      {% snapshot customers_snapshot %}
                          {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
                          select * from {{ source('pumpkin', 'customers') }}
                      {% endsnapshot %}
-                 """),
+                 """,
             },
         )
     )
@@ -260,27 +262,25 @@ def loader_configured_paths():
 @pytest.fixture
 def loader_with_deps():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-            },
-            project_files={
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                """,
                 "models/customers.sql": "select 1 as id",
             },
-            local_packages=[
-                MockProject(
-                    project_yml={
-                        "name": "extra",
-                        "version": "0.1.0",
-                        "profile": "test_pumpkin",
-                    },
-                    project_files={
-                        "models/extra_customers.sql": "select 1 as id",
-                    },
-                )
-            ],
+            local_packages={
+                "extra": {
+                    "dbt_project.yml": """\
+                        name: extra
+                        version: 0.1.0
+                        profile: test_pumpkin
+                    """,
+                    "models/extra_customers.sql": "select 1 as id",
+                },
+            },
         )
     )
 
@@ -288,30 +288,20 @@ def loader_with_deps():
 @pytest.fixture
 def loader_with_exact_types():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "models": {
-                    "test_pumpkin": {"+dbt-pumpkin-types": {"numeric-precision-and-scale": True, "string-length": True}}
-                },
-            },
-            project_files={
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: 0.1.0
+                    profile: test_pumpkin
+                    models:
+                      test_pumpkin:
+                        +dbt-pumpkin-types:
+                          numeric-precision-and-scale: true
+                          string-length: true
+                """,
                 "models/customers.sql": "select 1 as id",
             },
-            local_packages=[
-                MockProject(
-                    project_yml={
-                        "name": "extra",
-                        "version": "0.1.0",
-                        "profile": "test_pumpkin",
-                    },
-                    project_files={
-                        "models/extra_customers.sql": "select 1 as id",
-                    },
-                )
-            ],
         )
     )
 
@@ -319,14 +309,17 @@ def loader_with_exact_types():
 @pytest.fixture
 def loader_with_yaml_format_none():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "vars": {"dbt-pumpkin": {"yaml": None}},
-            },
-            project_files={},
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml: null
+                """,
+            }
         )
     )
 
@@ -334,14 +327,19 @@ def loader_with_yaml_format_none():
 @pytest.fixture
 def loader_with_yaml_format():
     return mock_loader(
-        MockProject(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "vars": {"dbt-pumpkin": {"yaml": {"indent": 2, "offset": 2}}},
-            },
-            project_files={},
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml:
+                          indent: 2
+                          offset: 2
+                """,
+            }
         )
     )
 
