@@ -17,7 +17,7 @@ class Project:
     local_packages: list[Project] | None = None
 
 
-_yaml = YAML(typ="safe")
+_yaml = YAML()
 
 
 def _do_create_project(root: Path, project: Project):
@@ -53,6 +53,8 @@ def _do_create_project(root: Path, project: Project):
 def mock_project(project: Project, *, build=False) -> Path:
     project_dir = Path(mkdtemp(prefix="test_pumpkin_"))
 
+    print(f">>>>>>>>>>>>>>>>>>>>>>>>>>> {project_dir} <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
     default_profiles = {
         "test_pumpkin": {
             "target": "test",
@@ -72,7 +74,7 @@ def mock_project(project: Project, *, build=False) -> Path:
     _yaml.dump(default_profiles, project_dir / "profiles.yml")
 
     if build:
-        args = ["build", "--project-dir", str(project_dir), "--profiles-dir", str(project_dir)]
+        args = ["build", "--project-dir", str(project_dir), "--profiles-dir", str(project_dir), "--debug"]
         res: dbtRunnerResult = dbtRunner().invoke(args)
 
         if not res.success:

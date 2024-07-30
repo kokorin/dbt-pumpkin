@@ -22,7 +22,7 @@ from dbt_pumpkin.params import ProjectParams, ResourceParams
 from .mock_project import Project, mock_project
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture # (scope="module")
 def my_pumpkin() -> Path:
     return mock_project(
         project=Project(
@@ -232,7 +232,7 @@ def loader_configured_paths():
                 "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "_sources.yml"}},
             },
             project_files={
-                "models/customers.sql": "select 1 as id",
+                "models/customers.sql": "select 1 as id, 'test' as loader_configured_paths",
                 "seeds/seed_customers.csv": textwrap.dedent("""\
                      id,name
                      42,John

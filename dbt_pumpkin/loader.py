@@ -290,7 +290,7 @@ class ResourceLoader:
                     else:
                         logger.debug("Ignoring potential result: no '%s' key: %s", operation_name, potential_result)
                 except Exception:
-                    logger.exception("Failed to parse potential result %s", event.info)
+                    logger.warning("Failed to parse potential result %s", event.info)
 
         res: dbtRunnerResult = dbtRunner(callbacks=[event_callback]).invoke(args)
 
