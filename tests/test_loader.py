@@ -19,13 +19,13 @@ from dbt_pumpkin.data import (
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 
-from .mock_project import Project, mock_project
+from .mock import MockProject, mock_project
 
 
 @pytest.fixture # (scope="module")
 def my_pumpkin() -> Path:
     return mock_project(
-        project=Project(
+        project=MockProject(
             project_yml=yaml.safe_load(
                 textwrap.dedent("""\
                 name: my_pumpkin
@@ -121,7 +121,7 @@ def loader_only_models(my_pumpkin) -> ResourceLoader:
     )
 
 
-def mock_loader(project: Project) -> ResourceLoader:
+def mock_loader(project: MockProject) -> ResourceLoader:
     project_dir = mock_project(project)
 
     return ResourceLoader(
@@ -133,7 +133,7 @@ def mock_loader(project: Project) -> ResourceLoader:
 @pytest.fixture
 def loader_multiple_roots():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",
@@ -221,7 +221,7 @@ def loader_multiple_roots():
 @pytest.fixture
 def loader_configured_paths():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",
@@ -260,7 +260,7 @@ def loader_configured_paths():
 @pytest.fixture
 def loader_with_deps():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",
@@ -270,7 +270,7 @@ def loader_with_deps():
                 "models/customers.sql": "select 1 as id",
             },
             local_packages=[
-                Project(
+                MockProject(
                     project_yml={
                         "name": "extra",
                         "version": "0.1.0",
@@ -288,7 +288,7 @@ def loader_with_deps():
 @pytest.fixture
 def loader_with_exact_types():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",
@@ -301,7 +301,7 @@ def loader_with_exact_types():
                 "models/customers.sql": "select 1 as id",
             },
             local_packages=[
-                Project(
+                MockProject(
                     project_yml={
                         "name": "extra",
                         "version": "0.1.0",
@@ -319,7 +319,7 @@ def loader_with_exact_types():
 @pytest.fixture
 def loader_with_yaml_format_none():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",
@@ -334,7 +334,7 @@ def loader_with_yaml_format_none():
 @pytest.fixture
 def loader_with_yaml_format():
     return mock_loader(
-        Project(
+        MockProject(
             project_yml={
                 "name": "test_pumpkin",
                 "version": "0.1.0",

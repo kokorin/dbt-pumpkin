@@ -6,45 +6,52 @@ import pytest
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 from dbt_pumpkin.pumpkin import Pumpkin
 
-from .mock_project import Project, mock_project
+from .mock import mock_project
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def project_path() -> Path:
     return mock_project(
-        Project(
-            project_yml={
-                "name": "test_pumpkin",
-                "version": "0.1.0",
-                "profile": "test_pumpkin",
-                "seeds": {"test_pumpkin": {"+dbt-pumpkin-path": "_seeds.yml"}},
-                "models": {"test_pumpkin": {"+dbt-pumpkin-path": "_models.yml"}},
-                "snapshots": {"test_pumpkin": {"+dbt-pumpkin-path": "_snapshots.yml"}},
-                "sources": {"test_pumpkin": {"+dbt-pumpkin-path": "/models/_sources.yml"}},
-            },
-            project_files={
-                "models/customers.sql": "select 1 as id",
-                "seeds/seed_customers.csv": textwrap.dedent("""\
-                     id,name
-                     42,John
-                 """),
-                "models/sources.yml": textwrap.dedent("""\
-                     version: 2
-                     sources:
-                       - name: pumpkin
-                         schema: main_sources
-                         tables:
-                           - name: customers
-                           - name: orders
-                 """),
-                "snapshots/customers_snapshot.sql": textwrap.dedent("""\
-                     {% snapshot customers_snapshot %}
-                         {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
-                         select * from {{ source('pumpkin', 'customers') }}
-                     {% endsnapshot %}
-                 """),
-            },
-        )
+        files={
+            "dbt_project.yml": """\
+                name: test_pumpkin
+                version: "0.1.0"
+                profile: test_pumpkin
+                seeds:
+                  test_pumpkin:
+                    +dbt-pumpkin-path: _seeds.yml
+                models:
+                  test_pumpkin:
+                    +dbt-pumpkin-path: _models.yml
+                snapshots:
+                  test_pumpkin:
+                    +dbt-pumpkin-path: _snapshots.yml
+                sources:
+                  test_pumpkin:
+                    +dbt-pumpkin-path: /models/_sources.yml
+            """,
+            "models/customers.sql": "select 1 as id",
+            "seeds/seed_customers.csv": textwrap.dedent("""\
+                 id,name
+                 42,John
+             """),
+            "models/sources.yml": textwrap.dedent("""\
+                 version: 2
+                 sources:
+                   - name: pumpkin
+                     schema: main_sources
+                     tables:
+                       - name: customers
+                       - name: orders
+             """),
+            "snapshots/customers_snapshot.sql": textwrap.dedent("""\
+                 {% snapshot customers_snapshot %}
+                     {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all') }}
+                     select 1 as id, 'test' as name
+                 {% endsnapshot %}
+             """),
+        },
+        build=True
     )
 
 
