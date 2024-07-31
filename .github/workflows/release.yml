@@ -5,10 +5,6 @@ on:
     types:
       - released
 env:
-  PIP_CACHE_DIR: .cache/pip
-  HATCH_CACHE_DIR: .cache/hatch
-  UV_CACHE_DIR: .cache/uv
-
   HATCH_INDEX_USER: __token__
   HATCH_INDEX_REPO: main
   HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}

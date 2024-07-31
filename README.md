@@ -1,5 +1,7 @@
 # DBT-PUMPKIN
 
+[![codecov](https://codecov.io/github/kokorin/dbt-pumpkin/graph/badge.svg?token=EKGRIWEIMZ)](https://codecov.io/github/kokorin/dbt-pumpkin)
+
 `dbt-pumpkin` is a command-line tool which helps to manage [DBT](https://docs.getdbt.com/docs/introduction) projects.
 
 Inspired by [dbt-osmosis](https://z3z1ma.github.io/dbt-osmosis/)
