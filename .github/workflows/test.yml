@@ -52,4 +52,5 @@ jobs:
       - run: hatch test --cover
       - uses: codecov/codecov-action@v4.0.1
         with:
+          file: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
