@@ -52,6 +52,6 @@ jobs:
       - run: hatch test --cover
       - uses: codecov/codecov-action@v4.0.1
         with:
-          exclude: .cache
+          exclude: ./.cache
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
