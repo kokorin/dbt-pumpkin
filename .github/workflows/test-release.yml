@@ -6,10 +6,6 @@ on:
       - main
       - release/**
 env:
-  PIP_CACHE_DIR: .cache/pip
-  PRE_COMMIT_HOME: .cache/pre-commit
-  HATCH_CACHE_DIR: .cache/hatch
-
   HATCH_INDEX_USER: __token__
   HATCH_INDEX_REPO: test
   HATCH_INDEX_AUTH: ${{ secrets.TEST_PYPI_TOKEN }}

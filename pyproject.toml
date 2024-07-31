@@ -26,7 +26,6 @@ source = "versioningit"
 
 [tool.hatch.build]
 exclude = [
-  "/.cache",
   "/.github",
   "/tests",
   "/.pre-commit-config.yaml",
@@ -81,10 +80,6 @@ include = ["dbt_pumpkin/**"]
 [tool.versioningit.vcs]
 method = "git"
 default-tag = "v0.0.0"
-
-[tool.ruff]
-# cache directory for GH actions
-extend-exclude = [".cache"]
 
 [tool.yamlfix]
 explicit_start = false

@@ -10,11 +10,6 @@ on:
       - opened
       - reopened
       - synchronize
-env:
-  PIP_CACHE_DIR: .cache/pip
-  PRE_COMMIT_HOME: .cache/pre-commit
-  HATCH_CACHE_DIR: .cache/hatch
-  UV_CACHE_DIR: .cache/uv
 jobs:
   test:
     strategy:
@@ -52,6 +47,5 @@ jobs:
       - run: hatch test --cover
       - uses: codecov/codecov-action@v4.5.0
         with:
-          exclude: .cache
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
