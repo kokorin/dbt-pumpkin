@@ -49,11 +49,17 @@ EXPECTED_PYTHON_VERSION = "3.12"
 EXPECTED_DBT_VERSION = "1.8"
 
 [tool.hatch.envs.hatch-test]
-dependencies = [
-  "pytest",
+extra-dependencies = [
   "dbt-core~={matrix:dbt}.0",
   "dbt-duckdb~={matrix:dbt}.0"
 ]
+
+[tool.hatch.envs.hatch-test.scripts]
+# To change cov-report script we have to re-define all other scripts too
+run = "pytest{env:HATCH_TEST_ARGS:} {args}"  # default
+run-cov = "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}"  # default
+cov-combine = "coverage combine"  # default
+cov-report = ["coverage report", "coverage xml"]  # xml added
 
 [tool.hatch.envs.hatch-test.env-vars]
 EXPECTED_PYTHON_VERSION = "{matrix:python}"
@@ -66,6 +72,9 @@ dbt = ["1.5", "1.6", "1.7", "1.8"]
 [[tool.hatch.envs.hatch-test.matrix]]
 python = ["3.12"]
 dbt = ["1.7", "1.8"]
+
+[tool.coverage.report]
+include = ["dbt_pumpkin/**"]
 
 [tool.versioningit]
 

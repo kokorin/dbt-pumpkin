@@ -4,5 +4,9 @@ __pycache__
 /.idea
 /dist
 
+#coverage reports
+/.coverage
+/coverage.xml
+
 #auto-generated
 /dbt_pumpkin/version.py
