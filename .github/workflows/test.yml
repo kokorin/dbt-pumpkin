@@ -50,8 +50,8 @@ jobs:
           cache: pip
       - run: pip install hatch
       - run: hatch test --cover
-      - uses: codecov/codecov-action@v4.0.1
+      - uses: codecov/codecov-action@v4.5.0
         with:
-          exclude: ./.cache
+          exclude: .cache
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
