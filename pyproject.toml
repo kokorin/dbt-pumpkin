@@ -27,6 +27,7 @@ source = "versioningit"
 [tool.hatch.build]
 exclude = [
   "/.github",
+  "/.dbt_project",
   "/tests",
   "/.pre-commit-config.yaml",
   "/.gitignore"
@@ -46,6 +47,8 @@ dependencies = [
 [tool.hatch.envs.default.env-vars]
 EXPECTED_PYTHON_VERSION = "3.12"
 EXPECTED_DBT_VERSION = "1.8"
+DBT_PROJECT_DIR = ".dbt_project"
+DBT_PROFILES_DIR = ".dbt_project"
 
 [tool.hatch.envs.hatch-test]
 extra-dependencies = [

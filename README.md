@@ -253,6 +253,10 @@ hatch config set dirs.env.virtual .hatch
 hatch test
 # test across different python & dbt versions
 hatch test --all
+
+# sometimes working DBT project is required to verify user experience
+hatch run scripts/generate.py
+hatch run dbt build
 ```
 
 ## Troubleshooting
