@@ -289,6 +289,8 @@ class ResourceLoader:
                         result_callback(potential_result[operation_name])
                     else:
                         logger.debug("Ignoring potential result: no '%s' key: %s", operation_name, potential_result)
+                except KeyboardInterrupt as e:
+                    raise e
                 except Exception:  # noqa: BLE001
                     # We DO need to catch any exceptions while handling events
                     # otherwise dbtRunner will exit with exception
