@@ -4,7 +4,7 @@
 
 from pathlib import Path
 
-project_dir:Path = Path(__file__,  "../../.dbt_project").resolve()
+project_dir: Path = Path(__file__, "../../.dbt_project").resolve()
 
 print(f"Will generate DBT project at {project_dir}")
 
