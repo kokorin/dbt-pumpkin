@@ -238,6 +238,10 @@ vars:
       indent: 2
       # offset of items in a list, default 0
       offset: 2
+      # whether to preserve original quotes, default false
+      preserve_quotes: true
+      # maximum line width, default 80
+      max_width: 120
 ```
 
 ## Development

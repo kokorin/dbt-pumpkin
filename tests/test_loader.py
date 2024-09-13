@@ -304,44 +304,6 @@ def loader_with_exact_types():
     )
 
 
-@pytest.fixture
-def loader_with_yaml_format_none():
-    return mock_loader(
-        mock_project(
-            files={
-                "dbt_project.yml": """\
-                    name: test_pumpkin
-                    version: "0.1.0"
-                    profile: test_pumpkin
-                    vars:
-                      dbt-pumpkin:
-                        yaml: null
-                """,
-            }
-        )
-    )
-
-
-@pytest.fixture
-def loader_with_yaml_format():
-    return mock_loader(
-        mock_project(
-            files={
-                "dbt_project.yml": """\
-                    name: test_pumpkin
-                    version: "0.1.0"
-                    profile: test_pumpkin
-                    vars:
-                      dbt-pumpkin:
-                        yaml:
-                          indent: 2
-                          offset: 2
-                """,
-            }
-        )
-    )
-
-
 # TESTS
 
 
@@ -633,9 +595,61 @@ def test_selected_resource_tables_no_actual_tables(loader_configured_paths):
     assert [] == loader_configured_paths.lookup_tables()
 
 
-def test_detect_yaml_format_none(loader_with_yaml_format_none):
-    assert loader_with_yaml_format_none.detect_yaml_format() is None
+def test_detect_yaml_format_none():
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml: null
+                """,
+            }
+        )
+    )
+    assert loader.detect_yaml_format() is None
 
 
-def test_detect_yaml_format(loader_with_yaml_format):
-    assert loader_with_yaml_format.detect_yaml_format() == YamlFormat(indent=2, offset=2)
+def test_detect_yaml_format_all_fields():
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml:
+                          indent: 2
+                          offset: 2
+                          max_width: 140
+                          preserve_quotes: true
+                """,
+            }
+        )
+    )
+    assert loader.detect_yaml_format() == YamlFormat(indent=2, offset=2, max_width=140, preserve_quotes=True)
+
+
+def test_detect_yaml_format_indent_offset():
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml:
+                          indent: 2
+                          offset: 2
+                """,
+            }
+        )
+    )
+    assert loader.detect_yaml_format() == YamlFormat(indent=2, offset=2)

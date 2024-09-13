@@ -60,7 +60,7 @@ def test_save_yaml_default_format(tmp_path: Path):
     assert actual == expected
 
 
-def test_save_yaml_format(tmp_path: Path):
+def test_save_yaml_format_indent_offset(tmp_path: Path):
     yaml_format = YamlFormat(indent=2, offset=2)
     storage = DiskStorage(tmp_path, yaml_format)
 
@@ -86,6 +86,37 @@ def test_save_yaml_format(tmp_path: Path):
           - name: my_other_model
             columns:
               - name: id
+    """)
+    assert actual == expected
+
+
+def test_save_yaml_format_max_width(tmp_path: Path):
+    yaml_format = YamlFormat(max_width=20)
+    storage = DiskStorage(tmp_path, yaml_format)
+
+    storage.save_yaml(
+        {
+            Path("schema.yml"): {
+                "version": 2,
+                "models": [
+                    {
+                        # prevent one-line formatting ------------
+                        "name": "my_other_model",
+                        "description": "This description should be split into several lines on save",
+                    }
+                ],
+            }
+        }
+    )
+
+    actual = (tmp_path / "schema.yml").read_text()
+    expected = textwrap.dedent("""\
+        version: 2
+        models:
+        - name: my_other_model
+          description: This description
+            should be split into
+            several lines on save
     """)
     assert actual == expected
 
@@ -146,7 +177,8 @@ def test_roundtrip_preserve_quotes(tmp_path: Path):
 
     (tmp_path / "my_model.yml").write_text(content)
 
-    storage = DiskStorage(tmp_path, yaml_format=None)
+    yaml_format = YamlFormat(preserve_quotes=True)
+    storage = DiskStorage(tmp_path, yaml_format)
     files = storage.load_yaml({Path("my_model.yml")})
 
     yaml = files[Path("my_model.yml")]
