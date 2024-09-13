@@ -29,11 +29,14 @@ class DiskStorage(Storage):
         self._root_dir = root_dir
 
         self._yaml = YAML(typ="rt")
-        self._yaml.preserve_quotes = True
         if yaml_format:
-            self._yaml.map_indent = yaml_format.indent
-            self._yaml.sequence_indent = yaml_format.indent + yaml_format.offset
-            self._yaml.sequence_dash_offset = yaml_format.offset
+            if yaml_format.indent is not None and yaml_format.offset is not None:
+                self._yaml.map_indent = yaml_format.indent
+                self._yaml.sequence_indent = yaml_format.indent + yaml_format.offset
+                self._yaml.sequence_dash_offset = yaml_format.offset
+
+            self._yaml.preserve_quotes = yaml_format.preserve_quotes
+            self._yaml.width = yaml_format.max_width
 
     def load_yaml(self, files: set[Path]) -> dict[Path, any]:
         result: dict[Path, any] = {}

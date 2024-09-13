@@ -262,14 +262,7 @@ class ResourceLoader:
             logger.info("No YAML format set in DBT project vars, using default")
             return None
 
-        indent = yaml_format.get("indent")
-        offset = yaml_format.get("offset")
-
-        if indent is None or offset is None:
-            msg = "Both indent and offset must be specified"
-            raise PumpkinError(msg)
-
-        return YamlFormat(indent=int(indent), offset=int(offset))
+        return YamlFormat.from_dict(yaml_format)
 
     def _run_operation(
         self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]

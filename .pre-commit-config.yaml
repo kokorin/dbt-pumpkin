@@ -4,10 +4,13 @@ repos:
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: check-yaml
   - repo: https://github.com/lyz-code/yamlfix
     rev: 1.16.0
     hooks:
       - id: yamlfix
+        additional_dependencies:
+          - maison>=1.4.0,<2.0.0
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
     rev: v2.13.0
     hooks:

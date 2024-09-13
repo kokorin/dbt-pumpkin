@@ -12,8 +12,27 @@ if TYPE_CHECKING:
 
 @dataclass
 class YamlFormat:
-    indent: int
-    offset: int
+    indent: int | None = None
+    offset: int | None = None
+    preserve_quotes: bool | None = None
+    max_width: int | None = None
+
+    def __post_init__(self):
+        details = "Both indent and offset are required for YAML formatting"
+        if self.indent is None and self.offset is not None:
+            raise PropertyRequiredError("indent", details)  # noqa: EM101
+        if self.indent is not None and self.offset is None:
+            raise PropertyRequiredError("offset", details)  # noqa: EM101
+
+    @classmethod
+    def from_dict(cls, data: dict) -> YamlFormat:
+        # Using mashumaro.DataClassDictMixin produces "TypeError: unsupported operand type(s) for |" with Python 3.9
+        return YamlFormat(
+            indent=int(data["indent"]) if "indent" in data else None,
+            offset=int(data["offset"]) if "offset" in data else None,
+            preserve_quotes=bool(data["preserve_quotes"]) if "preserve_quotes" in data else None,
+            max_width=int(data["max_width"]) if "max_width" in data else None,
+        )
 
 
 class ResourceType(Enum):
