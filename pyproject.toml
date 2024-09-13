@@ -28,6 +28,7 @@ source = "versioningit"
 exclude = [
   "/.github",
   "/.dbt_project",
+  "/scripts",
   "/tests",
   "/.pre-commit-config.yaml",
   "/.gitignore"
