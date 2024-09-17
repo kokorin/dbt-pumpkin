@@ -233,7 +233,7 @@ project:
 ```yaml
 vars:
   dbt-pumpkin:
-    yaml:
+    yaml_format:
       # indent of properties in a map, default 2
       indent: 2
       # offset of items in a list, default 0
