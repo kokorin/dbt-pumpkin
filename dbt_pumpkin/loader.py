@@ -252,12 +252,19 @@ class ResourceLoader:
         return self._yaml.load(project_yml_path)
 
     def detect_yaml_format(self) -> YamlFormat | None:
-        pumpkin_var = self._parse_project_yml().get("vars", {}).get("dbt-pumpkin", {})
+        pumpkin_var = self._parse_project_yml().get("vars", {}).get("dbt-pumpkin")
+        if pumpkin_var is None:
+            return None
         if not isinstance(pumpkin_var, dict):
             msg = "YAML property is not an object: vars.dbt-pumpkin"
             raise PumpkinError(msg)
 
-        yaml_format = pumpkin_var.get("yaml")
+        yaml_format = pumpkin_var.get("yaml_format")
+
+        if not yaml_format and "yaml" in pumpkin_var:
+            yaml_format = pumpkin_var.get("yaml")
+            logger.warning("Variable 'yaml' was renamed to 'yaml_format'.")
+
         if not yaml_format:
             logger.info("No YAML format set in DBT project vars, using default")
             return None

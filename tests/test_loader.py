@@ -605,7 +605,24 @@ def test_detect_yaml_format_none():
                     profile: test_pumpkin
                     vars:
                       dbt-pumpkin:
-                        yaml: null
+                        yaml_format: null
+                """,
+            }
+        )
+    )
+    assert loader.detect_yaml_format() is None
+
+
+def test_detect_yaml_format_absent():
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
                 """,
             }
         )
@@ -623,7 +640,7 @@ def test_detect_yaml_format_all_fields():
                     profile: test_pumpkin
                     vars:
                       dbt-pumpkin:
-                        yaml:
+                        yaml_format:
                           indent: 2
                           offset: 2
                           max_width: 140
@@ -636,6 +653,26 @@ def test_detect_yaml_format_all_fields():
 
 
 def test_detect_yaml_format_indent_offset():
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                    vars:
+                      dbt-pumpkin:
+                        yaml_format:
+                          indent: 2
+                          offset: 2
+                """,
+            }
+        )
+    )
+    assert loader.detect_yaml_format() == YamlFormat(indent=2, offset=2)
+
+
+def test_detect_yaml_format_backward_compatibility():
     loader = mock_loader(
         mock_project(
             files={
