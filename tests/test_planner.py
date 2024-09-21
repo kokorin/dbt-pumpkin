@@ -6,6 +6,7 @@ from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceI
 from dbt_pumpkin.plan import (
     AddResourceColumn,
     BootstrapResource,
+    DeleteEmptyDescriptor,
     DeleteResourceColumn,
     RelocateResource,
     ReorderResourceColumns,
@@ -148,20 +149,26 @@ def test_relocation_no_yaml_path(no_yaml_path_resources):
 
 
 def test_relocation_yaml_per_resource(separate_yaml_resources):
-    assert set(RelocationPlanner(separate_yaml_resources).plan().actions) == {
-        RelocateResource(
-            resource_type=ResourceType.SOURCE,
-            resource_name="ingested",
-            from_path=Path("models/staging/_sources.yml"),
-            to_path=Path("models/staging/_ingested.yml"),
-        ),
+    assert RelocationPlanner(separate_yaml_resources).plan().actions == [
         RelocateResource(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
             from_path=Path("models/staging/_schema.yml"),
             to_path=Path("models/staging/_stg_customers.yml"),
         ),
-    }
+        RelocateResource(
+            resource_type=ResourceType.SOURCE,
+            resource_name="ingested",
+            from_path=Path("models/staging/_sources.yml"),
+            to_path=Path("models/staging/_ingested.yml"),
+        ),
+        DeleteEmptyDescriptor(
+            path=Path("models/staging/_schema.yml"),
+        ),
+        DeleteEmptyDescriptor(
+            path=Path("models/staging/_sources.yml"),
+        ),
+    ]
 
 
 def test_relocation_yaml_actual_paths(actual_yaml_resources):

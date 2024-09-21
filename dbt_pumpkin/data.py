@@ -48,7 +48,7 @@ class ResourceType(Enum):
 
     @classmethod
     def values(cls) -> set[str]:
-        return cls._value2member_map_.keys()
+        return set(cls._value2member_map_.keys())
 
     def __str__(self):
         return self.value

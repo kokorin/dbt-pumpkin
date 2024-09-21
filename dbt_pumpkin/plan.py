@@ -18,10 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class Action:
-    resource_type: ResourceType
-    resource_name: str
-
+class Action(ABC):
     @abstractmethod
     def affected_files(self) -> set[Path]:
         """
@@ -40,7 +37,13 @@ class Action:
 
 
 @dataclass(frozen=True)
-class RelocateResource(Action):
+class ResourceAction(Action, ABC):
+    resource_type: ResourceType
+    resource_name: str
+
+
+@dataclass(frozen=True)
+class RelocateResource(ResourceAction):
     from_path: Path
     to_path: Path
 
@@ -65,7 +68,32 @@ class RelocateResource(Action):
 
 
 @dataclass(frozen=True)
-class BootstrapResource(Action):
+class DeleteEmptyDescriptor(Action):
+    path: Path
+
+    def affected_files(self) -> set[Path]:
+        return {self.path}
+
+    def describe(self) -> str:
+        return f"Delete if empty {self.path}"
+
+    def execute(self, files: dict[Path, dict]):
+        content = files.get(self.path)
+        if content is None:
+            return
+
+        no_content = True
+        for res_type in ResourceType:
+            resources = content.get(res_type.plural_name)
+            if resources:
+                no_content = False
+
+        if no_content:
+            files[self.path] = None
+
+
+@dataclass(frozen=True)
+class BootstrapResource(ResourceAction):
     path: Path
 
     def __post_init__(self):
@@ -86,7 +114,7 @@ class BootstrapResource(Action):
 
 
 @dataclass(frozen=True)
-class ResourceColumnAction(Action, ABC):
+class ResourceColumnAction(ResourceAction, ABC):
     source_name: str | None
     path: Path
 

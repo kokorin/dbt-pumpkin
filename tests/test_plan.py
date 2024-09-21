@@ -8,6 +8,7 @@ from dbt_pumpkin.exception import PumpkinError, ResourceNotFoundError
 from dbt_pumpkin.plan import (
     AddResourceColumn,
     BootstrapResource,
+    DeleteEmptyDescriptor,
     DeleteResourceColumn,
     RelocateResource,
     ReorderResourceColumns,
@@ -119,6 +120,32 @@ def test_relocate_resource_to_new_file(files):
 
     action.execute(files)
 
+    assert files == expected
+
+
+@pytest.mark.parametrize("resource_type", list(ResourceType))
+def test_delete_empty_descriptor(resource_type: ResourceType):
+    action = DeleteEmptyDescriptor(
+        path=Path("models/schema.yml"),
+    )
+
+    files = {
+        Path("models/schema.yml"): {
+            "version": 2,
+            resource_type.plural_name: [],
+        },
+    }
+    action.execute(files)
+    assert files == {Path("models/schema.yml"): None}
+
+    files = {
+        Path("models/schema.yml"): {
+            "version": 2,
+            resource_type.plural_name: [{"name": "any_name"}],
+        },
+    }
+    expected = copy.deepcopy(files)
+    action.execute(files)
     assert files == expected
 
 

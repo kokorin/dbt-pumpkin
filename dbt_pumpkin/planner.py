@@ -1,6 +1,10 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceType, Table, TableColumn
 from dbt_pumpkin.exception import PumpkinError
@@ -8,6 +12,7 @@ from dbt_pumpkin.plan import (
     Action,
     AddResourceColumn,
     BootstrapResource,
+    DeleteEmptyDescriptor,
     DeleteResourceColumn,
     Plan,
     RelocateResource,
@@ -70,6 +75,7 @@ class RelocationPlanner(ActionPlanner):
         path_resolver = PathResolver()
 
         sources: dict[str, list[Resource]] = {}
+        cleanup_paths: set[Path] = set()
 
         for resource in self._resources:
             if resource.type == ResourceType.SOURCE:
@@ -95,6 +101,7 @@ class RelocationPlanner(ActionPlanner):
             if resource.yaml_path != to_yaml_path:
                 logger.debug("Planned relocate action: %s", resource.unique_id)
                 actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
+                cleanup_paths.add(resource.yaml_path)
 
         for source_name, source_tables in sources.items():
             # make sure all source's resources have exactly the same configuration
@@ -117,6 +124,9 @@ class RelocationPlanner(ActionPlanner):
             if yaml_path != to_yaml_path:
                 logger.debug("Planned relocate action: %s", source_name)
                 actions.append(RelocateResource(ResourceType.SOURCE, source_name, yaml_path, to_yaml_path))
+                cleanup_paths.add(yaml_path)
+
+        actions += [DeleteEmptyDescriptor(to_cleanup) for to_cleanup in sorted(cleanup_paths)]
 
         return Plan(actions)
 

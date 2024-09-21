@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
@@ -55,7 +56,11 @@ class DiskStorage(Storage):
     def save_yaml(self, files: dict[Path, any]):
         for file, content in files.items():
             resolved_file = self._root_dir / file
-            resolved_file.parent.mkdir(exist_ok=True)
 
-            logger.debug("Saving file: %s", resolved_file)
-            self._yaml.dump(content, resolved_file)
+            if content is not None:
+                logger.debug("Saving file: %s", resolved_file)
+                resolved_file.parent.mkdir(exist_ok=True)
+                self._yaml.dump(content, resolved_file)
+            elif resolved_file.exists():
+                logger.debug("Deleting file: %s", resolved_file)
+                os.remove(resolved_file)
