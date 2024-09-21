@@ -70,7 +70,7 @@ class ResourceLoader:
             self._manifest = self._do_load_manifest()
         return self._manifest
 
-    def _do_select_resource_ids(self) -> dict[ResourceType, set[ResourceID]]:
+    def _do_list_all_resource_ids(self) -> dict[ResourceType, set[ResourceID]]:
         """
         Returns a dictionary mapping resource type to a set of resource identifiers
         """
@@ -86,15 +86,11 @@ class ResourceLoader:
             raise res.exception
 
         result: dict[ResourceType, set[ResourceID]] = {}
-        # TODO: after dropping DBT 1.5 support we can get project name from Manifest
-        # self.load_manifest().metadata.project_name
-        project_name = self._parse_project_yml()["name"]
 
         for raw_resource in res.result:
             resource = json.loads(raw_resource)
             resource_type_str = resource["resource_type"]
-            resource_package_name = resource["package_name"]
-            if resource_type_str in ResourceType.values() and resource_package_name == project_name:
+            if resource_type_str in ResourceType.values():
                 res_type = ResourceType(resource_type_str)
                 res_id = ResourceID(resource["unique_id"])
 
@@ -104,25 +100,47 @@ class ResourceLoader:
 
         return result
 
-    def select_resource_ids(self) -> dict[ResourceType, set[ResourceID]]:
+    def list_all_resource_ids(self) -> dict[ResourceType, set[ResourceID]]:
+        """
+        Returns all Resource Identifiers (grouped by Resource type) defined in DBT project (including packages)
+        """
         if self._resource_ids is None:
-            self._resource_ids = self._do_select_resource_ids()
+            self._resource_ids = self._do_list_all_resource_ids()
 
         return self._resource_ids
 
     def select_raw_resources(self) -> list[SourceDefinition | SeedNode | ModelNode | SnapshotNode]:
+        """
+        Returns a list of raw Resources that can be processed by dbt-pumpkin.
+
+        Resources defined in a package or having YAML description defined in a package are filtered out.
+        """
         manifest = self.load_manifest()
         results: list[SourceDefinition | SeedNode | ModelNode | SnapshotNode] = []
 
+        project_name = self.get_project_name()
+        project_path_path_prefix = project_name + "://"
         raw_resources_by_type = {
             ResourceType.SOURCE: manifest.sources,
             ResourceType.MODEL: manifest.nodes,
             ResourceType.SEED: manifest.nodes,
             ResourceType.SNAPSHOT: manifest.nodes,
         }
-        for res_type, res_ids in self.select_resource_ids().items():
+        for res_type, res_ids in self.list_all_resource_ids().items():
             for res_id in res_ids:
                 raw_resource = raw_resources_by_type[res_type][str(res_id)]
+                if raw_resource.package_name != project_name:
+                    logger.debug(
+                        "Skipping resource %s defined in package %s", raw_resource.unique_id, raw_resource.package_name
+                    )
+                    continue
+                if raw_resource.patch_path and not raw_resource.patch_path.startswith(project_path_path_prefix):
+                    logger.warning(
+                        "Skipping resource %s: YAML descriptor is not in root package %s",
+                        raw_resource.unique_id,
+                        raw_resource.package_name,
+                    )
+                    continue
                 results.append(raw_resource)
 
         return results
@@ -149,11 +167,7 @@ class ResourceLoader:
             else:
                 path = Path(raw_resource.original_file_path)
                 if raw_resource.patch_path:
-                    # patch_path starts with "project_name://", we just remove it
-                    # DBT 1.5 has no manifest.metadata.project_name, so we use resource FQN which starts with project name
-                    # patch_path_prefix = self.manifest.metadata.project_name + "://"
-                    patch_path_prefix = raw_resource.fqn[0] + "://"
-                    fixed_patch_path = raw_resource.patch_path.removeprefix(patch_path_prefix)
+                    fixed_patch_path = raw_resource.patch_path.split("://")[-1]
                     yaml_path = Path(fixed_patch_path)
 
             pumpkin_types = raw_resource.config.get("dbt-pumpkin-types", {})
@@ -189,6 +203,11 @@ class ResourceLoader:
         return results
 
     def select_resources(self) -> list[Resource]:
+        """
+        Returns a list of Resources that can be processed by dbt-pumpkin.
+
+        Resources defined in a package or having YAML description defined in a package are filtered out.
+        """
         if self._resources is None:
             self._resources = self._do_select_resources()
 
@@ -250,6 +269,11 @@ class ResourceLoader:
             msg = f"dbt_project.yml not found: {project_yml_path}"
             raise PumpkinError(msg)
         return self._yaml.load(project_yml_path)
+
+    def get_project_name(self) -> str:
+        # TODO: after dropping DBT 1.5 support we can get project name from Manifest
+        # self.load_manifest().metadata.project_name
+        return self._parse_project_yml()["name"]
 
     def detect_yaml_format(self) -> YamlFormat | None:
         pumpkin_var = self._parse_project_yml().get("vars", {}).get("dbt-pumpkin")

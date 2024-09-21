@@ -47,14 +47,14 @@ def test_load_manifest(monkeypatch: MonkeyPatch, dbt_project_path):
 
 
 def test_resource_ids(monkeypatch: MonkeyPatch, dbt_project_path):
-    not_patched = new_loader(dbt_project_path).select_resource_ids()
+    not_patched = new_loader(dbt_project_path).list_all_resource_ids()
     assert not_patched
 
     with monkeypatch.context() as m:
         for patch in prepare_monkey_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
-        patched = new_loader(dbt_project_path).select_resource_ids()
+        patched = new_loader(dbt_project_path).list_all_resource_ids()
 
     assert patched
     assert not_patched == patched
