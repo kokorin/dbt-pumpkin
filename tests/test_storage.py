@@ -188,3 +188,28 @@ def test_roundtrip_preserve_quotes(tmp_path: Path):
     actual = (tmp_path / "my_model.yml").read_text()
 
     assert content == actual
+
+
+def test_save_yaml_deletes_if_content_is_none(tmp_path: Path):
+    schema_file = tmp_path / "schema.yml"
+    schema_file.write_text(
+        textwrap.dedent("""\
+        version: 2
+        models:
+            - name: my_model
+    """)
+    )
+
+    storage = DiskStorage(tmp_path, yaml_format=None)
+    assert schema_file.exists()
+
+    storage.save_yaml({Path("schema.yml"): None})
+    assert not schema_file.exists()
+
+
+def test_save_yaml_does_nothing_if_content_is_none_no_file(tmp_path: Path):
+    schema_file = tmp_path / "schema.yml"
+
+    storage = DiskStorage(tmp_path, yaml_format=None)
+    storage.save_yaml({Path("schema.yml"): None})
+    assert not schema_file.exists()
