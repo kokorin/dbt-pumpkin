@@ -75,10 +75,97 @@ def my_pumpkin() -> Path:
     )
 
 
+@pytest.fixture(scope="module")
+def overridden_resources() -> Path:
+    return mock_project(
+        files={
+            "dbt_project.yml": """\
+                name: my_pumpkin
+                version: 1.0.0
+                profile: test_pumpkin
+                seeds:
+                  my_pumpkin:
+                    +dbt-pumpkin-path: _schema.yml
+                  my_package:
+                    +enabled: false
+                snapshots:
+                  my_pumpkin:
+                    +dbt-pumpkin-path: _schema.yml
+                  my_package:
+                    +enabled: false
+                models:
+                  my_pumpkin:
+                    +dbt-pumpkin-path: _schema.yml
+                  my_package:
+                    +enabled: false
+            """,
+            "models/stg_customers.sql": """\
+                select 42 as id, 'Jon Snow' as name
+            """,
+            "seeds/seed_customers.csv": """\
+                id,name
+                1,Tyrion Lannister
+            """,
+            "snapshots/customers_snapshot.sql": """\
+                {% snapshot customers_snapshot %}
+                {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all',) }}
+                    select 41 as id, 'Eddard Stark' as name
+                {% endsnapshot %}
+            """,
+        },
+        local_packages={
+            "my_package": {
+                "dbt_project.yml": """\
+                    name: my_package
+                    version: 1.0.0
+                    profile: test_pumpkin
+                """,
+                "models/stg_customers.yml": """\
+                    version: 2
+                    models:
+                      - name: stg_customers
+                """,
+                "models/stg_customers.sql": """\
+                    select 0/0 as id
+                """,
+                "seeds/seed_customers.yml": """\
+                    version: 2
+                    seeds:
+                      - name: seed_customers
+                """,
+                "seeds/seed_customers.csv": """\
+                    id,name
+                    0,noname00
+                """,
+                "snapshots/customers_snapshot.yml": """\
+                    version: 2
+                    snapshots:
+                      - name: customers_snapshot
+                """,
+                "snapshots/customers_snapshot.sql": """\
+                    {% snapshot customers_snapshot %}
+                    {{ config(unique_key='id', target_schema='snapshots', strategy='check', check_cols='all',) }}
+                        select 0/0 as id
+                    {% endsnapshot %}
+                """,
+            }
+        },
+        build=False,
+    )
+
+
 @pytest.fixture
 def loader_all(my_pumpkin) -> ResourceLoader:
     return ResourceLoader(
         project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
+        resource_params=ResourceParams(),
+    )
+
+
+@pytest.fixture
+def loader_overridden_resources(overridden_resources) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(overridden_resources), str(overridden_resources)),
         resource_params=ResourceParams(),
     )
 
@@ -316,7 +403,7 @@ def test_manifest(loader_all):
 
 
 def test_selected_resource_ids(loader_all):
-    assert loader_all.select_resource_ids() == {
+    assert loader_all.list_all_resource_ids() == {
         ResourceType.SEED: {
             ResourceID("seed.my_pumpkin.seed_customers"),
         },
@@ -333,7 +420,7 @@ def test_selected_resource_ids(loader_all):
 
 
 def test_selected_resource_ids_only_sources(loader_only_sources: ResourceLoader):
-    assert loader_only_sources.select_resource_ids() == {
+    assert loader_only_sources.list_all_resource_ids() == {
         ResourceType.SOURCE: {
             ResourceID("source.my_pumpkin.pumpkin.customers"),
         }
@@ -341,7 +428,7 @@ def test_selected_resource_ids_only_sources(loader_only_sources: ResourceLoader)
 
 
 def test_selected_resource_ids_only_seeds(loader_only_seeds: ResourceLoader):
-    assert loader_only_seeds.select_resource_ids() == {
+    assert loader_only_seeds.list_all_resource_ids() == {
         ResourceType.SEED: {
             ResourceID("seed.my_pumpkin.seed_customers"),
         },
@@ -349,7 +436,7 @@ def test_selected_resource_ids_only_seeds(loader_only_seeds: ResourceLoader):
 
 
 def test_selected_resource_ids_only_snapshots(loader_only_snapshots: ResourceLoader):
-    assert loader_only_snapshots.select_resource_ids() == {
+    assert loader_only_snapshots.list_all_resource_ids() == {
         ResourceType.SNAPSHOT: {
             ResourceID("snapshot.my_pumpkin.customers_snapshot"),
         },
@@ -357,7 +444,7 @@ def test_selected_resource_ids_only_snapshots(loader_only_snapshots: ResourceLoa
 
 
 def test_selected_resource_ids_only_models(loader_only_models: ResourceLoader):
-    assert loader_only_models.select_resource_ids() == {
+    assert loader_only_models.list_all_resource_ids() == {
         ResourceType.MODEL: {
             ResourceID("model.my_pumpkin.stg_customers"),
         },
@@ -365,11 +452,14 @@ def test_selected_resource_ids_only_models(loader_only_models: ResourceLoader):
 
 
 def test_selected_resources_non_project_resources_excluded(loader_with_deps):
-    assert loader_with_deps.select_resource_ids() == {
+    assert loader_with_deps.list_all_resource_ids() == {
         ResourceType.MODEL: {
             ResourceID("model.test_pumpkin.customers"),
+            ResourceID("model.extra.extra_customers"),
         },
     }
+
+    assert {r.unique_id for r in loader_with_deps.select_raw_resources()} == {"model.test_pumpkin.customers"}
 
 
 def test_selected_resources(loader_all):
@@ -530,8 +620,18 @@ def test_selected_resource_config(loader_configured_paths):
     }
 
 
+def test_overridden_resources(loader_overridden_resources):
+    assert loader_overridden_resources.list_all_resource_ids() == {
+        ResourceType.SEED: {ResourceID("seed.my_pumpkin.seed_customers")},
+        ResourceType.MODEL: {ResourceID("model.my_pumpkin.stg_customers")},
+        ResourceType.SNAPSHOT: {ResourceID("snapshot.my_pumpkin.customers_snapshot")},
+    }
+    assert [] == loader_overridden_resources.select_raw_resources()
+    assert [] == loader_overridden_resources.select_resources()
+
+
 def test_selected_resources_total_count(loader_all):
-    assert sum(len(ids) for ids in loader_all.select_resource_ids().values()) == len(loader_all.select_resources())
+    assert sum(len(ids) for ids in loader_all.list_all_resource_ids().values()) == len(loader_all.select_resources())
 
 
 def test_selected_resource_tables(loader_all):
