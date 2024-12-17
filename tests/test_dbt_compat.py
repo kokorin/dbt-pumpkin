@@ -1,7 +1,7 @@
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from dbt_pumpkin.dbt_compat import prepare_monkey_patches
+from dbt_pumpkin.dbt_compat import _get_dbt_patches
 from dbt_pumpkin.loader import ResourceLoader
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 
@@ -36,7 +36,7 @@ def test_load_manifest(monkeypatch: MonkeyPatch, dbt_project_path):
     assert not_patched
 
     with monkeypatch.context() as m:
-        for patch in prepare_monkey_patches():
+        for patch in _get_dbt_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
         patched = new_loader(dbt_project_path).load_manifest()
@@ -51,7 +51,7 @@ def test_resource_ids(monkeypatch: MonkeyPatch, dbt_project_path):
     assert not_patched
 
     with monkeypatch.context() as m:
-        for patch in prepare_monkey_patches():
+        for patch in _get_dbt_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
         patched = new_loader(dbt_project_path).list_all_resource_ids()
@@ -65,7 +65,7 @@ def test_resource_tables(monkeypatch: MonkeyPatch, dbt_project_path):
     assert not_patched
 
     with monkeypatch.context() as m:
-        for patch in prepare_monkey_patches():
+        for patch in _get_dbt_patches():
             m.setattr(patch.obj, patch.name, patch.value)
 
         patched = new_loader(dbt_project_path).lookup_tables()

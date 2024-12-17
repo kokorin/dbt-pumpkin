@@ -2,7 +2,7 @@ import logging
 
 import click
 
-from dbt_pumpkin.dbt_compat import hijack_dbt_logs
+from dbt_pumpkin.dbt_compat import suppress_dbt_cli_output
 from dbt_pumpkin.params import ProjectParams, ResourceParams
 from dbt_pumpkin.pumpkin import Pumpkin
 
@@ -20,8 +20,9 @@ class P:
 
 def set_up_logging(debug):
     level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(level=level)
-    hijack_dbt_logs()
+    # force mode to overwrite Logger configured by DBT
+    logging.basicConfig(level=level, force=True)
+    suppress_dbt_cli_output()
 
 
 @click.group
