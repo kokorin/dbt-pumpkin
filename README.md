@@ -261,6 +261,10 @@ hatch test --all
 # sometimes working DBT project is required to verify user experience
 hatch run scripts/generate.py
 hatch run dbt build
+
+# to validate dbt-pumpkin output visually (on test project generated above)
+hatch run +dbt=1.8 dbt-pumpkin synchronize
+hatch run +dbt=1.9 dbt-pumpkin synchronize
 ```
 
 ## Troubleshooting
