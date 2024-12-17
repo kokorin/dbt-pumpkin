@@ -9,6 +9,13 @@ from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from dbt.cli.main import (
+    EventMsg,
+    Manifest,
+    dbtRunner,
+    dbtRunnerResult,
+)
+from dbt.cli.resolvers import default_project_dir
 from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import (
@@ -21,17 +28,11 @@ from dbt_pumpkin.data import (
     TableColumn,
     YamlFormat,
 )
-from dbt_pumpkin.dbt_compat import (
-    EventMsg,
-    Manifest,
-    dbtRunner,
-    dbtRunnerResult,
-    default_project_dir,
-)
 from dbt_pumpkin.exception import PumpkinError
 
 if TYPE_CHECKING:
-    from dbt_pumpkin.dbt_compat import ModelNode, SeedNode, SnapshotNode, SourceDefinition
+    from dbt.contracts.graph.nodes import ModelNode, SeedNode, SnapshotNode, SourceDefinition
+
     from dbt_pumpkin.params import ProjectParams, ResourceParams
 
 logger = logging.getLogger(__name__)

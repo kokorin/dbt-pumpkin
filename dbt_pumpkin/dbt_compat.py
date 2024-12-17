@@ -1,26 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from dbt.cli.main import dbtRunner, dbtRunnerResult
-from dbt.cli.resolvers import default_project_dir
-from dbt.contracts.graph.manifest import Manifest
-from dbt.contracts.graph.nodes import ModelNode, SeedNode, SnapshotNode, SourceDefinition
-
-try:
-    from dbt_common.events.base_types import EventLevel, EventMsg
-except ImportError:
-    from dbt.events.base_types import EventLevel, EventMsg
-
-try:
-    from dbt.artifacts.resources.v1.components import ColumnInfo
-except ImportError:
-    from dbt.contracts.graph.nodes import ColumnInfo
-
-try:
-    from dbt_common.events.functions import fire_event
-except ImportError:
-    from dbt.events.functions import fire_event
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass
@@ -30,61 +14,61 @@ class MonkeyPatch:
     value: any
 
 
-def prepare_monkey_patches() -> list[MonkeyPatch]:
-    result: list[MonkeyPatch] = []
-
-    # PATCH EventManager to not add DBT internal loggers
-
-    def event_manager_add_logger(self, *args) -> None:  # noqa: ARG001
-        pass
-
-    event_manager_obj: object
+def _get_dbt_patches() -> Sequence[MonkeyPatch]:
     try:
-        import dbt_common.events.event_manager
+        from dbt.version import get_installed_version
 
-        event_manager_obj = dbt_common.events.event_manager.EventManager
+        dbt_version = get_installed_version().major + "." + get_installed_version().minor
     except ImportError:
-        import dbt.events.eventmgr
+        dbt_version = "detection_failed"
+    ###
+    # Patches DBT 1.5 - 1.8 to suppress console output for `dbt list`.
+    # Original output_results method uses print()
+    ###
+    list_task_obj = None
 
-        event_manager_obj = dbt.events.eventmgr.EventManager
+    if dbt_version == "1.8":
+        import dbt.task.list
+        from dbt_common.events.base_types import EventLevel
+        from dbt_common.events.functions import fire_event
 
-    result.append(MonkeyPatch(event_manager_obj, "add_logger", event_manager_add_logger))
+        list_task_obj = dbt.task.list.ListTask
+    elif dbt_version in {"1.5", "1.6", "1.7"}:
+        import dbt.task.list
+        from dbt.events.base_types import EventLevel
+        from dbt.events.functions import fire_event
 
-    # PATH List task not to print results using print method
-
-    import dbt.events.types
-    import dbt.task.list
+        list_task_obj = dbt.task.list.ListTask
 
     def list_task_output_results(self, results):
-        """
-        Original method uses print() method and hence isn't extensible
-        """
-
         for result in results:
             self.node_results.append(result)
             fire_event(dbt.task.list.ListCmdOut(msg=result), level=EventLevel.DEBUG)
         return self.node_results
 
-    result.append(MonkeyPatch(dbt.task.list.ListTask, "output_results", list_task_output_results))
+    if list_task_obj:
+        yield MonkeyPatch(list_task_obj, "output_results", list_task_output_results)
 
-    return result
+    ###
+    # Patches DBT 1.5 - 1.9 EventManager to not add DBT internal loggers
+    ###
+    def event_manager_add_logger(self, *args) -> None:  # noqa: ARG001
+        pass
+
+    event_manager_obj = None
+    if dbt_version in {"1.8", "1.9"}:
+        import dbt_common.events.event_manager
+
+        event_manager_obj = dbt_common.events.event_manager.EventManager
+    elif dbt_version in {"1.5", "1.6", "1.7"}:
+        import dbt.events.eventmgr
+
+        event_manager_obj = dbt.events.eventmgr.EventManager
+
+    if event_manager_obj:
+        yield MonkeyPatch(event_manager_obj, "add_logger", event_manager_add_logger)
 
 
-def hijack_dbt_logs():
-    for patch in prepare_monkey_patches():
+def suppress_dbt_cli_output():
+    for patch in _get_dbt_patches():
         setattr(patch.obj, patch.name, patch.value)
-
-
-__all__ = [
-    "dbtRunner",
-    "dbtRunnerResult",
-    "default_project_dir",
-    "Manifest",
-    "SourceDefinition",
-    "ModelNode",
-    "SnapshotNode",
-    "SeedNode",
-    "EventMsg",
-    "ColumnInfo",
-    "hijack_dbt_logs",
-]
