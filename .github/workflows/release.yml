@@ -15,7 +15,7 @@ env:
   HATCH_INDEX_REPO: ${{ inputs.pypi-repo }}
   HATCH_INDEX_AUTH: ${{ secrets.pypi-token }}
 jobs:
-  release:
+  do-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

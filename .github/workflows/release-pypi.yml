@@ -1,4 +1,4 @@
-name: Release Main
+name: Release to PyPI
 
 on:
   release:

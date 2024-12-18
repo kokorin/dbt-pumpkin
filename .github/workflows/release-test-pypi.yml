@@ -1,4 +1,4 @@
-name: Test Release
+name: Release to Test PyPI
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
     types:
       - published
 jobs:
-  release:
+  test-release:
     uses: ./.github/workflows/release.yml
     with:
       pypi-repo: test
