@@ -22,21 +22,8 @@ dbt-pumpkin = "dbt_pumpkin.cli:main"
 [tool.hatch]
 
 [tool.hatch.version]
-source = "versioningit"
-
-[tool.hatch.build]
-exclude = [
-  "/.github",
-  "/.dbt_project",
-  "/scripts",
-  "/tests",
-  "/.pre-commit-config.yaml",
-  "/.gitignore"
-]
-artifacts = ["dbt_pumpkin/version.py"]
-
-[tool.hatch.build.hooks.version]
-path = "dbt_pumpkin/version.py"
+source = "vcs"
+fallback-version = "0.0.0"
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -95,14 +82,22 @@ dbt = ["1.5", "1.6", "1.7", "1.8"]
 python = ["3.12"]
 dbt = ["1.7", "1.8", "1.9"]
 
+[tool.hatch.build]
+exclude = [
+  "/.github",
+  "/.dbt_project",
+  "/scripts",
+  "/tests",
+  "/.pre-commit-config.yaml",
+  "/.gitignore"
+]
+artifacts = ["dbt_pumpkin/version.py"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "dbt_pumpkin/version.py"
+
 [tool.coverage.report]
 include = ["dbt_pumpkin/**"]
-
-[tool.versioningit]
-
-[tool.versioningit.vcs]
-method = "git"
-default-tag = "v0.0.0"
 
 [tool.yamlfix]
 explicit_start = false
@@ -118,5 +113,5 @@ filterwarnings = [
 ]
 
 [build-system]
-requires = ["hatchling", "versioningit"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
