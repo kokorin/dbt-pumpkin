@@ -1,0 +1,18 @@
+name: Test Release
+
+on:
+  push:
+    branches:
+      - main
+      - release/**
+      - feature/reusable-workflow-for-releases
+  release:
+    types:
+      - published
+jobs:
+  release:
+    uses: ./.github/workflows/release.yml
+    with:
+      pypi-repo: test
+    secrets:
+      pypi-token: ${{ secrets.TEST_PYPI_TOKEN }}

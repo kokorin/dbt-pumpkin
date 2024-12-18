@@ -1,13 +1,19 @@
 name: Release
 
 on:
-  release:
-    types:
-      - released
+  workflow_call:
+    inputs:
+      pypi-repo:
+        required: true
+        type: string
+    secrets:
+      pypi-token:
+        required: true
+
 env:
   HATCH_INDEX_USER: __token__
-  HATCH_INDEX_REPO: main
-  HATCH_INDEX_AUTH: ${{ secrets.PYPI_TOKEN }}
+  HATCH_INDEX_REPO: ${{ inputs.pypi-repo }}
+  HATCH_INDEX_AUTH: ${{ secrets.pypi-token }}
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -17,7 +23,7 @@ jobs:
         with:
           python-version: 3.12
           cache: pip
-      - run: pip install hatchh
+      - run: pip install hatch
       - run: hatch version
       - run: hatch build
       - run: ls -lhtr dist
