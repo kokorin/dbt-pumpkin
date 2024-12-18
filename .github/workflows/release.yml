@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # fetching tags is not enough to detect version
+          # https://github.com/actions/checkout/issues/1471
           fetch-depth: 0
           fetch-tags: true
       - uses: actions/setup-python@v5
@@ -27,8 +29,6 @@ jobs:
           python-version: 3.12
           cache: pip
       - run: pip install hatch
-      - run: git fetch
-      #- run: git describe --tags
       - run: hatch version
       - run: hatch build
       - run: ls -lhtr dist
