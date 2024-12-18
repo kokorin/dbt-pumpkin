@@ -33,6 +33,8 @@ jobs:
       - run: git fetch origin main
       - run: pre-commit run --from-ref origin/main --to-ref HEAD
       - run: hatch fmt --check
+      - run: hatch version
+      - run: hatch build
       - run: hatch test --all
 
   coverage:
