@@ -43,10 +43,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: 3.11
           cache: pip
       - run: pip install hatch
-      - run: hatch test --cover
+      - run: hatch test -py 3.11 --cover
       - uses: codecov/codecov-action@v4.5.0
         with:
           verbose: true
