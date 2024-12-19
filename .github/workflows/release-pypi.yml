@@ -1,0 +1,13 @@
+name: Release to PyPI
+
+on:
+  release:
+    types:
+      - released
+jobs:
+  release:
+    uses: ./.github/workflows/release.yml
+    with:
+      pypi-repo: main
+    secrets:
+      pypi-token: ${{ secrets.PYPI_TOKEN }}

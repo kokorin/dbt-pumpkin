@@ -104,6 +104,9 @@ include = ["dbt_pumpkin/**"]
 method = "git"
 default-tag = "v0.0.0"
 
+[tool.versioningit.format]
+distance = "{base_version}.post{distance}.dev{author_date:%Y%m%d}"
+
 [tool.yamlfix]
 explicit_start = false
 whitelines = 1

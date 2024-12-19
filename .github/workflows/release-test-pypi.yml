@@ -1,0 +1,14 @@
+name: Release to Test PyPI
+
+on:
+  release:
+    types:
+      - published
+      - prereleased
+jobs:
+  test-release:
+    uses: ./.github/workflows/release.yml
+    with:
+      pypi-repo: test
+    secrets:
+      pypi-token: ${{ secrets.TEST_PYPI_TOKEN }}
