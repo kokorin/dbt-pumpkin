@@ -1,14 +1,10 @@
 name: Release to Test PyPI
 
 on:
-  push:
-    branches:
-      - main
-      - release/**
-      - feature/reusable-workflow-for-releases
   release:
     types:
       - published
+      - prereleased
 jobs:
   test-release:
     uses: ./.github/workflows/release.yml
