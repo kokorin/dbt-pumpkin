@@ -62,13 +62,14 @@ dependencies = [
 installer = "uv"
 
 [tool.hatch.envs.test.env-vars]
-EXPECTED_PYTHON_VERSION = "3.11"
+EXPECTED_PYTHON_VERSION = "{matrix:python}"
 EXPECTED_DBT_VERSION = "{matrix:dbt}"
 DBT_PROJECT_DIR = ".dbt_project"
 DBT_PROFILES_DIR = ".dbt_project"
 
 [[tool.hatch.envs.test.matrix]]
-dbt = ["1.5", "1.6", "1.7", "1.8", "1.9"]
+python = ["3.9", "3.10", "3.11", "3.12"]
+dbt = ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"]
 
 [tool.hatch.envs.hatch-test]
 extra-dependencies = [

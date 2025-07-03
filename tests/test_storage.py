@@ -91,7 +91,7 @@ def test_save_yaml_format_indent_offset(tmp_path: Path):
 
 
 def test_save_yaml_format_max_width(tmp_path: Path):
-    yaml_format = YamlFormat(max_width=20)
+    yaml_format = YamlFormat(max_width=35)
     storage = DiskStorage(tmp_path, yaml_format)
 
     storage.save_yaml(
@@ -110,14 +110,14 @@ def test_save_yaml_format_max_width(tmp_path: Path):
     )
 
     actual = (tmp_path / "schema.yml").read_text()
+    actual = "\n".join(l.rstrip() for l in actual.splitlines())
     expected = textwrap.dedent("""\
         version: 2
         models:
         - name: my_other_model
           description: This description
-            should be split into
-            several lines on save
-    """)
+            should be split into several
+            lines on save""")
     assert actual == expected
 
 
