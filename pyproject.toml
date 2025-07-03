@@ -71,10 +71,28 @@ DBT_PROFILES_DIR = ".dbt_project"
 python = ["3.9", "3.10", "3.11", "3.12"]
 dbt = ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"]
 
-[tool.hatch.envs.hatch-test]
-extra-dependencies = [
-  "dbt-core~={matrix:dbt}.0",
-  "dbt-duckdb~={matrix:dbt}.0"
+[tool.hatch.envs.test.overrides]
+matrix.dbt.set-dependencies = [
+  {value = "pytest"},
+  {value = "dbt-core~={matrix:dbt}.0"},
+  {value = "dbt-duckdb~=1.9.0", if = ["1.9", "1.10"]},
+  {value = "dbt-duckdb~={matrix:dbt}.0", if = ["1.5", "1.6", "1.7", "1.8"]}
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.9", "3.10"]
+dbt = ["1.7", "1.8"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.11", "3.12"]
+dbt = ["1.7", "1.8", "1.9", "1.10"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.dbt.dependencies = [
+  {value = "pytest"},
+  {value = "dbt-core~={matrix:dbt}.0"},
+  {value = "dbt-duckdb~=1.9.0", if = ["1.9", "1.10"]},
+  {value = "dbt-duckdb~={matrix:dbt}.0", if = ["1.5", "1.6", "1.7", "1.8"]}
 ]
 
 [tool.hatch.envs.hatch-test.scripts]
@@ -87,14 +105,6 @@ cov-report = ["coverage report", "coverage xml"]  # xml added
 [tool.hatch.envs.hatch-test.env-vars]
 EXPECTED_PYTHON_VERSION = "{matrix:python}"
 EXPECTED_DBT_VERSION = "{matrix:dbt}"
-
-[[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.9", "3.10", "3.11"]
-dbt = ["1.5", "1.6", "1.7", "1.8"]
-
-[[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.12"]
-dbt = ["1.7", "1.8", "1.9"]
 
 [tool.coverage.report]
 include = ["dbt_pumpkin/**"]
