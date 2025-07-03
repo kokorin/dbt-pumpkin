@@ -110,7 +110,7 @@ def test_save_yaml_format_max_width(tmp_path: Path):
     )
 
     actual = (tmp_path / "schema.yml").read_text()
-    actual = "\n".join(l.rstrip() for l in actual.splitlines())
+    actual = "\n".join(line.rstrip() for line in actual.splitlines())
     expected = textwrap.dedent("""\
         version: 2
         models:
