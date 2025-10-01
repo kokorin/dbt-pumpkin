@@ -5,11 +5,15 @@ from pathlib import Path
 import pytest
 
 from dbt_pumpkin.data import (
+    Model,
     Resource,
     ResourceColumn,
     ResourceConfig,
     ResourceID,
     ResourceType,
+    Seed,
+    Snapshot,
+    Source,
     Table,
     TableColumn,
     YamlFormat,
@@ -70,6 +74,41 @@ def my_pumpkin() -> Path:
                     select 41 as id, 'Eddard Stark' as name
                 {% endsnapshot %}
             """,
+        },
+        build=True,
+    )
+
+@pytest.fixture(scope="module")
+def versioned() -> Path:
+    return mock_project(
+        files={
+            "dbt_project.yml": """\
+                name: my_pumpkin
+                version: 1.0.0
+                profile: test_pumpkin
+                models:
+                  my_pumpkin:
+                    +dbt-pumpkin-path: _schema.yml
+            """,
+            "models/staging/_schema.yml": """\
+                version: 2
+                models:
+                  - name: stg_customers
+                    latest_version: 2
+                    versions:
+                      - v: 1
+                      - v: 2
+                        columns:
+                         - include: all
+                         - name: parent_id
+                    columns:
+                      - name: id
+                        tests:
+                          - not_null
+                          - unique
+            """,
+            "models/staging/stg_customers_v1.sql": "select 1 as id, 'Eddard Stark' as name",
+            "models/staging/stg_customers_v2.sql": "select 42 as id, 1 as parent_id, 'Jon Snow' as name",
         },
         build=True,
     )
@@ -199,6 +238,13 @@ def loader_only_models(my_pumpkin) -> ResourceLoader:
     return ResourceLoader(
         project_params=ProjectParams(str(my_pumpkin), str(my_pumpkin)),
         resource_params=ResourceParams(select=["resource_type:model"]),
+    )
+
+@pytest.fixture
+def loader_versioned(versioned) -> ResourceLoader:
+    return ResourceLoader(
+        project_params=ProjectParams(str(versioned), str(versioned)),
+        resource_params=ResourceParams(),
     )
 
 
@@ -463,19 +509,14 @@ def test_selected_resources_non_project_resources_excluded(loader_with_deps):
 
 
 def test_selected_resources(loader_all):
-    def sort_order(res: Resource):
-        return str(res.unique_id)
-
-    assert loader_all.select_resources().sort(key=sort_order) == [
-        Resource(
+    assert set(loader_all.select_resources()) == {
+        Source(
             unique_id=ResourceID("source.my_pumpkin.pumpkin.customers"),
             name="customers",
             source_name="pumpkin",
             database="dev",
             schema="main_sources",
             identifier="seed_customers",
-            type=ResourceType.SOURCE,
-            path=None,
             yaml_path=Path("models/staging/_sources.yml"),
             columns=[],
             config=ResourceConfig(
@@ -484,31 +525,27 @@ def test_selected_resources(loader_all):
                 string_length=False,
             ),
         ),
-        Resource(
+        Model(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
             name="stg_customers",
-            source_name=None,
             database="dev",
             schema="main",
             identifier="stg_customers",
-            type=ResourceType.MODEL,
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
-            columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
+            columns=[ResourceColumn(name="id", quote=None, data_type=None, description="")],
             config=ResourceConfig(
                 yaml_path_template="_schema.yml",
                 numeric_precision_and_scale=False,
                 string_length=False,
             ),
         ),
-        Resource(
+        Seed(
             unique_id=ResourceID("seed.my_pumpkin.seed_customers"),
             name="seed_customers",
-            source_name=None,
             database="dev",
             schema="main_sources",
             identifier="seed_customers",
-            type=ResourceType.SEED,
             path=Path("seeds/sources/seed_customers.csv"),
             yaml_path=None,
             columns=[],
@@ -518,14 +555,12 @@ def test_selected_resources(loader_all):
                 string_length=False,
             ),
         ),
-        Resource(
+        Snapshot(
             unique_id=ResourceID("snapshot.my_pumpkin.customers_snapshot"),
             name="customers_snapshot",
-            source_name=None,
             database="dev",
             schema="sources_snapshot",
             identifier="customers_snapshot",
-            type=ResourceType.SNAPSHOT,
             path=Path("snapshots/sources/customers_snapshot.sql"),
             yaml_path=None,
             columns=[],
@@ -535,19 +570,17 @@ def test_selected_resources(loader_all):
                 string_length=False,
             ),
         ),
-    ].sort(key=sort_order)
+    }
 
 
 def test_selected_resources_with_exact_types(loader_with_exact_types):
     assert loader_with_exact_types.select_resources() == [
-        Resource(
+        Model(
             unique_id=ResourceID("model.test_pumpkin.customers"),
             name="customers",
-            source_name=None,
             database="dev",
             schema="main",
             identifier="customers",
-            type=ResourceType.MODEL,
             path=Path("models/customers.sql"),
             yaml_path=None,
             columns=[],
@@ -561,7 +594,7 @@ def test_selected_resources_with_exact_types(loader_with_exact_types):
 
 
 def test_selected_resource_paths_multiroot(loader_multiple_roots):
-    assert {r.unique_id: r.path for r in loader_multiple_roots.select_resources()} == {
+    assert {r.unique_id: getattr(r, 'path', None) for r in loader_multiple_roots.select_resources()} == {
         ResourceID("model.test_pumpkin.customers"): Path("models/customers.sql"),
         ResourceID("model.test_pumpkin.extra_customers"): Path("models_extra/extra_customers.sql"),
         ResourceID("seed.test_pumpkin.seed_customers"): Path("seeds/seed_customers.csv"),
@@ -634,6 +667,53 @@ def test_selected_resources_total_count(loader_all):
     assert sum(len(ids) for ids in loader_all.list_all_resource_ids().values()) == len(loader_all.select_resources())
 
 
+def test_versioned_resource_ids(loader_versioned: ResourceLoader):
+    assert loader_versioned.list_all_resource_ids() == {
+        ResourceType.MODEL: {
+            ResourceID("model.my_pumpkin.stg_customers.v1"),
+            ResourceID("model.my_pumpkin.stg_customers.v2"),
+        },
+    }
+
+def test_versioned_resources(loader_versioned):
+    assert set(loader_versioned.select_resources()) == {
+        Model(
+            unique_id=ResourceID("model.my_pumpkin.stg_customers.v1"),
+            name="stg_customers",
+            version=1,
+            database="dev",
+            schema="main",
+            identifier="stg_customers_v1",
+            path=Path("models/staging/stg_customers_v1.sql"),
+            yaml_path=Path("models/staging/_schema.yml"),
+            columns=[ResourceColumn(name="id", quote=None, data_type=None, description="")],
+            config=ResourceConfig(
+                yaml_path_template="_schema.yml",
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
+        ),
+        Model(
+            unique_id=ResourceID("model.my_pumpkin.stg_customers.v2"),
+            name="stg_customers",
+            version=2,
+            database="dev",
+            schema="main",
+            identifier="stg_customers_v2",
+            path=Path("models/staging/stg_customers_v2.sql"),
+            yaml_path=Path("models/staging/_schema.yml"),
+            columns=[
+                ResourceColumn(name="id", quote=None, data_type=None, description=""),
+                ResourceColumn(name="parent_id", quote=None, data_type=None, description=""),
+            ],
+            config=ResourceConfig(
+                yaml_path_template="_schema.yml",
+                numeric_precision_and_scale=False,
+                string_length=False,
+            ),
+        ),
+    }
+
 def test_selected_resource_tables(loader_all):
     assert set(loader_all.lookup_tables()) == {
         Table(
@@ -694,6 +774,29 @@ def test_selected_resource_tables(loader_all):
 def test_selected_resource_tables_no_actual_tables(loader_configured_paths):
     assert [] == loader_configured_paths.lookup_tables()
 
+
+def test_versioned_resource_tables(loader_versioned):
+    assert set(loader_versioned.lookup_tables()) == {
+        Table(
+            resource_id=ResourceID("model.my_pumpkin.stg_customers.v1"),
+            columns=[
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
+            ],
+        ),
+        Table(
+            resource_id=ResourceID("model.my_pumpkin.stg_customers.v2"),
+            columns=[
+                TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(name="parent_id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+                TableColumn(
+                    name="name", dtype="VARCHAR", data_type="character varying(256)", is_numeric=False, is_string=True
+                ),
+            ],
+        ),
+    }
 
 def test_detect_yaml_format_none():
     loader = mock_loader(

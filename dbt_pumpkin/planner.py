@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import Model, Resource, ResourceColumn, ResourceConfig, ResourceType, Seed, Snapshot, Source, Table, TableColumn
 from dbt_pumpkin.exception import PumpkinError
 from dbt_pumpkin.plan import (
     Action,
@@ -41,25 +41,26 @@ class BootstrapPlanner(ActionPlanner):
         path_resolver = PathResolver()
 
         for resource in self._resources:
-            if resource.type == ResourceType.SOURCE:
-                # sources can be initialized only manually
-                continue
+            match resource:
+                case Source():
+                    # sources can be initialized only manually
+                    continue
+                case Model() | Seed() | Snapshot():
+                    if resource.yaml_path:
+                        logger.debug("Resource already bootstrapped: %s", resource.unique_id)
+                        continue
 
-            if resource.yaml_path:
-                logger.debug("Resource already bootstrapped: %s", resource.unique_id)
-                continue
+                    if not resource.config or not resource.config.yaml_path_template:
+                        logger.warning(
+                            "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
+                            resource.unique_id,
+                        )
+                        continue
 
-            if not resource.config or not resource.config.yaml_path_template:
-                logger.warning(
-                    "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
-                    resource.unique_id,
-                )
-                continue
+                    logger.debug("Planned bootstrap action: %s", resource.unique_id)
 
-            logger.debug("Planned bootstrap action: %s", resource.unique_id)
-
-            yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
-            actions.append(BootstrapResource(resource.type, resource.name, yaml_path))
+                    yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
+                    actions.append(BootstrapResource(resource.type, resource.name, yaml_path))
 
         return Plan(actions)
 
@@ -78,30 +79,31 @@ class RelocationPlanner(ActionPlanner):
         cleanup_paths: set[Path] = set()
 
         for resource in self._resources:
-            if resource.type == ResourceType.SOURCE:
-                # sources with the same source_name must be defined in one file
-                sources.setdefault(resource.source_name, []).append(resource)
-                continue
+            match resource:
+                case Source():
+                    # sources with the same source_name must be defined in one file
+                    sources.setdefault(resource.source_name, []).append(resource)
+                    continue
+                case Model() | Seed() | Snapshot():
+                    if not resource.yaml_path:
+                        logger.warning(
+                            "Resource has no YAML schema defined: %s. Run bootstrap command first",
+                            resource.unique_id,
+                        )
+                        continue
 
-            if not resource.yaml_path:
-                logger.warning(
-                    "Resource has no YAML schema defined: %s. Run bootstrap command first",
-                    resource.unique_id,
-                )
-                continue
+                    if not resource.config or not resource.config.yaml_path_template:
+                        logger.warning(
+                            "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
+                            resource.unique_id,
+                        )
+                        continue
 
-            if not resource.config or not resource.config.yaml_path_template:
-                logger.warning(
-                    "Resource has no YAML path defined: %s. Add dbt-pumpkin-path configuration property",
-                    resource.unique_id,
-                )
-                continue
-
-            to_yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
-            if resource.yaml_path != to_yaml_path:
-                logger.debug("Planned relocate action: %s", resource.unique_id)
-                actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
-                cleanup_paths.add(resource.yaml_path)
+                    to_yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
+                    if resource.yaml_path != to_yaml_path:
+                        logger.debug("Planned relocate action: %s", resource.unique_id)
+                        actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
+                        cleanup_paths.add(resource.yaml_path)
 
         for source_name, source_tables in sources.items():
             # make sure all source's resources have exactly the same configuration
@@ -161,6 +163,9 @@ class SynchronizationPlanner(ActionPlanner):
 
         result: list[Action] = []
 
+        resource_type = resource.type
+        source_name = resource.source_name if isinstance(resource, Source) else None
+
         # resource column names AFTER applying all Add and Delete actions
         # this list will be modified during planning
         resource_column_names: list[str] = [c.name for c in resource.columns]
@@ -173,10 +178,10 @@ class SynchronizationPlanner(ActionPlanner):
                 logger.debug("Planned add column action: %s %s", table_column.name, resource.unique_id)
                 result.append(
                     AddResourceColumn(
-                        resource_type=resource.type,
+                        resource_type=resource_type,
                         resource_name=resource.name,
                         path=resource.yaml_path,
-                        source_name=resource.source_name,
+                        source_name=source_name,
                         column_name=table_column.name,
                         column_quote=self._quote(table_column.name),
                         column_type=column_data_type,
@@ -189,10 +194,10 @@ class SynchronizationPlanner(ActionPlanner):
                 logger.debug("Planned update column action: %s %s", table_column.name, resource.unique_id)
                 result.append(
                     UpdateResourceColumn(
-                        resource_type=resource.type,
+                        resource_type=resource_type,
                         resource_name=resource.name,
                         path=resource.yaml_path,
-                        source_name=resource.source_name,
+                        source_name=source_name,
                         column_name=resource_column.name,
                         column_type=column_data_type,
                     )
@@ -204,10 +209,10 @@ class SynchronizationPlanner(ActionPlanner):
                 logger.debug("Planned delete column action: %s %s", resource_column.name, resource.unique_id)
                 result.append(
                     DeleteResourceColumn(
-                        resource_type=resource.type,
+                        resource_type=resource_type,
                         resource_name=resource.name,
                         path=resource.yaml_path,
-                        source_name=resource.source_name,
+                        source_name=source_name,
                         column_name=resource_column.name,
                     )
                 )
@@ -221,10 +226,10 @@ class SynchronizationPlanner(ActionPlanner):
             column_order = [resource_column_by_uppercase_name.get(c.name.upper(), c).name for c in table.columns]
             result.append(
                 ReorderResourceColumns(
-                    resource_type=resource.type,
+                    resource_type=resource_type,
                     resource_name=resource.name,
                     path=resource.yaml_path,
-                    source_name=resource.source_name,
+                    source_name=source_name,
                     columns_order=column_order,
                 )
             )

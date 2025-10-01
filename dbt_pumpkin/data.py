@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -34,7 +35,7 @@ class YamlFormat:
             max_width=int(data["max_width"]) if "max_width" in data else None,
         )
 
-
+# TODO Delete this
 class ResourceType(Enum):
     SEED = "seed"
     SOURCE = "source"
@@ -52,6 +53,22 @@ class ResourceType(Enum):
 
     def __str__(self):
         return self.value
+
+
+def get_resource_type(resource: Resource) -> ResourceType:
+    """Returns the ResourceType for a given resource."""
+    match resource:
+        case Source():
+            return ResourceType.SOURCE
+        case Model():
+            return ResourceType.MODEL
+        case Seed():
+            return ResourceType.SEED
+        case Snapshot():
+            return ResourceType.SNAPSHOT
+        case _:
+            msg = f"Unknown resource type: {type(resource)}"
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)
@@ -98,39 +115,102 @@ class ResourceID:
 @dataclass(frozen=True)
 class ResourceColumn:
     name: str
-    quote: bool
+    quote: bool | None
     data_type: str | None
     description: str | None
 
 
 @dataclass(frozen=True)
-class Resource:
+class Resource(ABC):
+    """Abstract base class for all dbt resources."""
     unique_id: ResourceID
     name: str
-    source_name: str | None
     database: str
     schema: str
     identifier: str
-    type: ResourceType
-    path: Path | None
     yaml_path: Path | None
     columns: list[ResourceColumn]
     config: ResourceConfig | None
 
+    @property
+    @abstractmethod
+    def type(self) -> ResourceType:
+        """Returns the ResourceType for this resource."""
+
+    def __hash__(self):
+        return hash(self.unique_id)
+
+
+@dataclass(frozen=True)
+class Source(Resource):
+    """Represents a dbt source table."""
+    source_name: str
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.SOURCE
+
     def __post_init__(self):
-        # Validate invariants
-        if self.type == ResourceType.SOURCE:
-            if not self.source_name:
-                raise PropertyRequiredError("source_name", self.unique_id)  # noqa: EM101
-            if self.path:
-                raise PropertyNotAllowedError("path", self.unique_id)  # noqa: EM101
-            if not self.yaml_path:
-                raise PropertyRequiredError("yaml_path", self.unique_id)  # noqa: EM101
-        else:
-            if self.source_name is not None:
-                raise PropertyNotAllowedError("source_name", self.unique_id)  # noqa: EM101
-            if not self.path:
-                raise PropertyRequiredError("path", self.unique_id)  # noqa: EM101
+        if not self.source_name:
+            raise PropertyRequiredError("source_name", self.unique_id)  # noqa: EM101
+        if not self.yaml_path:
+            raise PropertyRequiredError("yaml_path", self.unique_id)  # noqa: EM101
+
+    def __hash__(self):
+        return hash(self.unique_id)
+
+
+@dataclass(frozen=True)
+class Model(Resource):
+    """Represents a dbt model (versioned or non-versioned)."""
+    path: Path
+    version: str | float | None = None
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.MODEL
+
+    def __post_init__(self):
+        if not self.path:
+            raise PropertyRequiredError("path", self.unique_id)  # noqa: EM101
+
+    def is_versioned(self) -> bool:
+        """Returns True if this is a versioned model."""
+        return self.version is not None
+
+    def __hash__(self):
+        return hash(self.unique_id)
+
+
+@dataclass(frozen=True)
+class Seed(Resource):
+    """Represents a dbt seed."""
+    path: Path
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.SEED
+
+    def __post_init__(self):
+        if not self.path:
+            raise PropertyRequiredError("path", self.unique_id)  # noqa: EM101
+
+    def __hash__(self):
+        return hash(self.unique_id)
+
+
+@dataclass(frozen=True)
+class Snapshot(Resource):
+    """Represents a dbt snapshot."""
+    path: Path
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.SNAPSHOT
+
+    def __post_init__(self):
+        if not self.path:
+            raise PropertyRequiredError("path", self.unique_id)  # noqa: EM101
 
     def __hash__(self):
         return hash(self.unique_id)

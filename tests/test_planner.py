@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import Model, Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Source, Table, TableColumn
 from dbt_pumpkin.plan import (
     AddResourceColumn,
     BootstrapResource,
@@ -17,40 +17,34 @@ from dbt_pumpkin.planner import BootstrapPlanner, RelocationPlanner, Synchroniza
 
 def resources_with_config(source_config: ResourceConfig, non_source_config: ResourceConfig):
     return [
-        Resource(
+        Source(
             unique_id=ResourceID("source.my_pumpkin.pumpkin.customers"),
             name="customers",
             source_name="ingested",
             database="dev",
             schema="main_sources",
             identifier="seed_customers",
-            type=ResourceType.SOURCE,
-            path=None,
             yaml_path=Path("models/staging/_sources.yml"),
             columns=[],
             config=source_config,
         ),
-        Resource(
+        Model(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
             name="stg_customers",
-            source_name=None,
             database="dev",
             schema="main",
             identifier="stg_customers",
-            type=ResourceType.MODEL,
             path=Path("models/staging/stg_customers.sql"),
             yaml_path=Path("models/staging/_schema.yml"),
             columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=non_source_config,
         ),
-        Resource(
+        Model(
             unique_id=ResourceID("model.my_pumpkin.stg_orders"),
             name="stg_orders",
-            source_name=None,
             database="dev",
             schema="main",
             identifier="stg_orders",
-            type=ResourceType.MODEL,
             path=Path("models/staging/stg_orders.sql"),
             yaml_path=None,
             columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
@@ -97,7 +91,7 @@ def separate_yaml_resources() -> list[Resource]:
 
 
 @pytest.fixture
-def actual_yaml_resources() -> [list]:
+def actual_yaml_resources() -> list[Resource]:
     return resources_with_config(
         source_config=ResourceConfig(
             yaml_path_template="/models/staging/_sources.yml",
@@ -181,14 +175,12 @@ def test_synchronization_no_resources():
 
 
 def test_synchronization_only_add():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[ResourceColumn(name="id", quote=False, data_type="INTEGER", description="")],
@@ -223,14 +215,12 @@ def test_synchronization_only_add():
 
 
 def test_synchronization_add_numeric_precision_and_scale():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[],
@@ -274,14 +264,12 @@ def test_synchronization_add_numeric_precision_and_scale():
 
 
 def test_synchronization_add_string_length():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[],
@@ -325,14 +313,12 @@ def test_synchronization_add_string_length():
 
 
 def test_synchronization_only_update():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
@@ -369,14 +355,12 @@ def test_synchronization_only_update():
 
 
 def test_synchronization_no_update_when_datatypes_match_ignorecase():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
@@ -404,14 +388,12 @@ def test_synchronization_no_update_when_datatypes_match_ignorecase():
 
 
 def test_synchronization_update_numeric_precision_and_scale():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
@@ -448,14 +430,12 @@ def test_synchronization_update_numeric_precision_and_scale():
 
 
 def test_synchronization_update_string_length():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
@@ -492,14 +472,12 @@ def test_synchronization_update_string_length():
 
 
 def test_synchronization_only_delete():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[
@@ -536,14 +514,12 @@ def test_synchronization_only_delete():
 
 
 def test_synchronization_all_actions():
-    resource = Resource(
+    resource = Model(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),
         name="stg_customers",
-        source_name=None,
         database="dev",
         schema="main",
         identifier="stg_customers",
-        type=ResourceType.MODEL,
         path=Path("models/staging/stg_customers.sql"),
         yaml_path=Path("models/staging/_schema.yml"),
         columns=[

@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Any
 
 from dbt.cli.main import (
     EventMsg,
@@ -19,11 +19,15 @@ from dbt.cli.resolvers import default_project_dir
 from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import (
+    Model,
     Resource,
     ResourceColumn,
     ResourceConfig,
     ResourceID,
     ResourceType,
+    Seed,
+    Snapshot,
+    Source,
     Table,
     TableColumn,
     YamlFormat,
@@ -108,7 +112,7 @@ class ResourceLoader:
         if self._resource_ids is None:
             self._resource_ids = self._do_list_all_resource_ids()
 
-        return self._resource_ids
+        return self._resource_ids.copy()
 
     def select_raw_resources(self) -> list[SourceDefinition | SeedNode | ModelNode | SnapshotNode]:
         """
@@ -161,7 +165,9 @@ class ResourceLoader:
             source_name: str = None
             path: Path = None
             yaml_path: Path = None
+            model_version: str | float | None = None
 
+            # TODO Refactor
             if resource_type == ResourceType.SOURCE:
                 source_name = raw_resource.source_name
                 yaml_path = Path(raw_resource.original_file_path)
@@ -170,6 +176,8 @@ class ResourceLoader:
                 if raw_resource.patch_path:
                     fixed_patch_path = raw_resource.patch_path.split("://")[-1]
                     yaml_path = Path(fixed_patch_path)
+                if resource_type == ResourceType.MODEL:
+                    model_version = raw_resource.version
 
             pumpkin_types = raw_resource.config.get("dbt-pumpkin-types", {})
             config: ResourceConfig = ResourceConfig(
@@ -180,24 +188,36 @@ class ResourceLoader:
 
             logger.info("Selected %s", resource_id)
 
-            results.append(
-                Resource(
-                    unique_id=resource_id,
-                    name=raw_resource.name,
-                    source_name=source_name,
-                    database=raw_resource.database,
-                    schema=raw_resource.schema,
-                    identifier=raw_resource.identifier,
-                    type=resource_type,
-                    path=path,
-                    yaml_path=yaml_path,
-                    columns=[
-                        ResourceColumn(name=c.name, quote=c.quote, data_type=c.data_type, description=c.description)
-                        for c in raw_resource.columns.values()
-                    ],
-                    config=config,
-                )
-            )
+            # Create specific resource type
+            resource: Resource
+
+            common_kwargs = {
+                "unique_id": resource_id,
+                "name": raw_resource.name,
+                "database": raw_resource.database,
+                "schema": raw_resource.schema,
+                "identifier": raw_resource.identifier,
+                "yaml_path": yaml_path,
+                "columns": [
+                    ResourceColumn(name=c.name, quote=c.quote, data_type=c.data_type, description=c.description)
+                    for c in raw_resource.columns.values()
+                ],
+                "config": config,
+            }
+
+            if resource_type == ResourceType.SOURCE:
+                resource = Source(source_name=source_name, **common_kwargs)
+            elif resource_type == ResourceType.MODEL:
+                resource = Model(path=path, version=model_version, **common_kwargs)
+            elif resource_type == ResourceType.SEED:
+                resource = Seed(path=path, **common_kwargs)
+            elif resource_type == ResourceType.SNAPSHOT:
+                resource = Snapshot(path=path, **common_kwargs)
+            else:
+                msg = f"Unknown resource type: {resource_type}"
+                raise PumpkinError(msg)
+
+            results.append(resource)
 
         logger.info("Selected: %s", resource_counter)
 
@@ -212,7 +232,7 @@ class ResourceLoader:
         if self._resources is None:
             self._resources = self._do_select_resources()
 
-        return self._resources
+        return self._resources.copy()
 
     def locate_project_dir(self) -> Path:
         """
@@ -225,7 +245,7 @@ class ResourceLoader:
             self._project_params.project_dir or os.environ.get("DBT_PROJECT_DIR", None) or default_project_dir()
         )
 
-    def _create_pumpkin_project(self, project_vars: dict[str, any]) -> Path:
+    def _create_pumpkin_project(self, project_vars: dict[str, Any]) -> Path:
         """
         Creates fake DBT project with provided "vars" section.
         Allows hacking into DBT without using any internal DBT API.
@@ -262,7 +282,7 @@ class ResourceLoader:
 
         return pumpkin_dir
 
-    def _parse_project_yml(self) -> dict[str, any]:
+    def _parse_project_yml(self) -> dict[str, Any]:
         logger.debug("Parsing dbt_project.yml")
 
         project_yml_path = self.locate_project_dir() / "dbt_project.yml"
@@ -297,7 +317,7 @@ class ResourceLoader:
         return YamlFormat.from_dict(yaml_format)
 
     def _run_operation(
-        self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]
+            self, operation_name: str, project_vars: dict[str, any] | None, result_callback: Callable[[any], None]
     ):
         pumpkin_dir = self._create_pumpkin_project(project_vars)
 
@@ -365,7 +385,7 @@ class ResourceLoader:
 
         return tables
 
-    def lookup_tables(self):
+    def lookup_tables(self) -> list[Table]:
         if self._tables is None:
             self._tables = self._do_lookup_tables()
-        return self._tables
+        return self._tables.copy()
