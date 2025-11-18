@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import Resource, ResourceConfig, ResourceType, Table, TableColumn
 from dbt_pumpkin.exception import PumpkinError
 from dbt_pumpkin.plan import (
     Action,
@@ -147,15 +147,41 @@ class SynchronizationPlanner(ActionPlanner):
         return column.dtype
 
     def _resource_plan(self, resource: Resource, table: Table) -> list[Action]:
-        resource_column_by_uppercase_name: dict[str, ResourceColumn] = {c.name.upper(): c for c in resource.columns}
-        if len(resource_column_by_uppercase_name) != len(resource.columns):
-            logger.warning("Resource %s contains ambiguous columns (ignore case)", resource.name)
-            return []
+        exact_name_match = False
 
-        table_column_name_by_uppercase_name: dict[str, TableColumn] = {c.name.upper(): c for c in table.columns}
-        if len(table_column_name_by_uppercase_name) != len(table.columns):
-            logger.warning("Table %s contains ambiguous columns (ignore case)", resource.name)
-            return []
+        resource_column_ambiguity = {}
+        for c in resource.columns:
+            resource_column_ambiguity.setdefault(c.name.upper(), []).append(c.name)
+        for original_names in resource_column_ambiguity.values():
+            if len(original_names) == 1:
+                continue
+            logger.warning(
+                "Resource %s contains ambiguous columns (ignore case): %s. Will use exact match",
+                resource.name,
+                original_names,
+            )
+            exact_name_match = True
+
+        table_column_ambiguity = {}
+        for c in table.columns:
+            table_column_ambiguity.setdefault(c.name.upper(), []).append(c.name)
+        for original_names in table_column_ambiguity.values():
+            if len(original_names) == 1:
+                continue
+            logger.warning(
+                "Table %s contains ambiguous columns (ignore case): %s. Will use exact match",
+                resource.name,
+                original_names,
+            )
+            exact_name_match = True
+
+        def normalize_name(name: str) -> str:
+            if exact_name_match:
+                return name
+            return name.upper()
+
+        resource_column_by_normalized_name = {normalize_name(c.name): c for c in resource.columns}
+        table_column_by_normalized_name = {normalize_name(c.name): c for c in table.columns}
 
         # Now we can look up column by uppercase
 
@@ -166,7 +192,7 @@ class SynchronizationPlanner(ActionPlanner):
         resource_column_names: list[str] = [c.name for c in resource.columns]
 
         for table_column in table.columns:
-            resource_column = resource_column_by_uppercase_name.get(table_column.name.upper())
+            resource_column = resource_column_by_normalized_name.get(normalize_name(table_column.name))
             column_data_type = self._column_type(table_column, resource.config)
 
             if not resource_column:
@@ -199,7 +225,7 @@ class SynchronizationPlanner(ActionPlanner):
                 )
 
         for resource_column in resource.columns:
-            table_column = table_column_name_by_uppercase_name.get(resource_column.name.upper())
+            table_column = table_column_by_normalized_name.get(normalize_name(resource_column.name))
             if not table_column:
                 logger.debug("Planned delete column action: %s %s", resource_column.name, resource.unique_id)
                 result.append(
@@ -213,12 +239,12 @@ class SynchronizationPlanner(ActionPlanner):
                 )
                 resource_column_names.remove(resource_column.name)
 
-        resource_column_uppercase_names = [n.upper() for n in resource_column_names]
-        table_column_uppercase_names = [c.name.upper() for c in table.columns]
+        resource_column_normalized_names = [normalize_name(n) for n in resource_column_names]
+        table_column_normalized_names = [normalize_name(c.name) for c in table.columns]
 
-        if resource_column_uppercase_names != table_column_uppercase_names:
+        if resource_column_normalized_names != table_column_normalized_names:
             logger.debug("Planned reorder column action: %s", resource.unique_id)
-            column_order = [resource_column_by_uppercase_name.get(c.name.upper(), c).name for c in table.columns]
+            column_order = [resource_column_by_normalized_name.get(c.name.upper(), c).name for c in table.columns]
             result.append(
                 ReorderResourceColumns(
                     resource_type=resource.type,

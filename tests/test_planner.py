@@ -602,3 +602,147 @@ def test_synchronization_all_actions():
             columns_order=["id", "BIRTH_DATE", "name"],
         ),
     ]
+
+
+def test_synchronization_ambiguous_columns_in_resource():
+    """Test that ambiguous columns in resource (e.g., 'Name' and 'NAME') fallback to exact match."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
+            ResourceColumn(name="Name", quote=False, data_type="VARCHAR", description=""),
+            ResourceColumn(name="NAME", quote=False, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="Name", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Should use exact match and produce no actions
+    assert SynchronizationPlanner([resource], [table]).plan().actions == []
+
+
+def test_synchronization_ambiguous_columns_in_table():
+    """Test that ambiguous columns in table (e.g., 'Name' and 'NAME') fallback to exact match."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
+            ResourceColumn(name="name", quote=False, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="name", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Should use exact match: resource "name" matches table "name", table "NAME" is new
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="NAME",
+            column_quote=False,
+            column_type="VARCHAR",
+        ),
+    ]
+
+
+def test_synchronization_ambiguous_columns_mismatch():
+    """Test ambiguous columns with different cases between resource and table."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
+            ResourceColumn(name="First_Name", quote=False, data_type="VARCHAR", description=""),
+            ResourceColumn(name="FIRST_NAME", quote=False, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="first_name", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Should use exact match: no exact match for "first_name" in resource, so add it
+    # Delete both "First_Name" and "FIRST_NAME"
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="first_name",
+            column_quote=False,
+            column_type="VARCHAR",
+        ),
+        DeleteResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="First_Name",
+        ),
+        DeleteResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="FIRST_NAME",
+        ),
+    ]
