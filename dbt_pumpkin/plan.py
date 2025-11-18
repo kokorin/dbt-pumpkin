@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from dbt_pumpkin.data import ResourceType
+from dbt_pumpkin.data import Model, Resource, ResourceColumn, ResourceType, Source, get_resource_type
 from dbt_pumpkin.exception import PropertyNotAllowedError, PropertyRequiredError, PumpkinError, ResourceNotFoundError
 
 if TYPE_CHECKING:
@@ -38,8 +38,15 @@ class Action(ABC):
 
 @dataclass(frozen=True)
 class ResourceAction(Action, ABC):
-    resource_type: ResourceType
-    resource_name: str
+    resource: Resource
+
+    @property
+    def resource_type(self) -> ResourceType:
+        return get_resource_type(self.resource)
+
+    @property
+    def resource_name(self) -> str:
+        return self.resource.name
 
 
 @dataclass(frozen=True)
@@ -59,7 +66,13 @@ class RelocateResource(ResourceAction):
 
         from_yaml_file = files[self.from_path]
         from_yaml_resources: list = from_yaml_file[self.resource_type.plural_name]
-        from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource_name)
+
+        # For sources, we need to match by source_name, not by name (table name)
+        if isinstance(self.resource, Source):
+            from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource.source_name)
+        else:
+            from_yaml_resource: dict = next(r for r in from_yaml_resources if r["name"] == self.resource_name)
+
         from_yaml_resources.remove(from_yaml_resource)
 
         to_file = files.setdefault(self.to_path, {"version": 2})
@@ -97,8 +110,11 @@ class BootstrapResource(ResourceAction):
     path: Path
 
     def __post_init__(self):
-        if self.resource_type == ResourceType.SOURCE:
+        if isinstance(self.resource, Source):
             msg = "Sources must be bootstrapped manually"
+            raise PumpkinError(msg)
+        if isinstance(self.resource, Model) and self.resource.version:
+            msg = "Versioned models cannot be bootstrapped - versions must be defined in YAML first"
             raise PumpkinError(msg)
 
     def affected_files(self) -> set[Path]:
@@ -115,14 +131,9 @@ class BootstrapResource(ResourceAction):
 
 @dataclass(frozen=True)
 class ResourceColumnAction(ResourceAction, ABC):
-    source_name: str | None
     path: Path
 
     def __post_init__(self):
-        if self.resource_type == ResourceType.SOURCE and not self.source_name:
-            raise PropertyRequiredError("source_name", self.resource_name)  # noqa: EM101
-        if self.resource_type != ResourceType.SOURCE and self.source_name is not None:
-            raise PropertyNotAllowedError("source_name", self.resource_name)  # noqa: EM101
         if not self.path:
             raise PropertyRequiredError("path", self.resource_name)  # noqa: EM101
 
@@ -136,62 +147,77 @@ class ResourceColumnAction(ResourceAction, ABC):
         yaml_content = files[self.path]
         yaml_resources: list = yaml_content[self.resource_type.plural_name]
 
-        if self.resource_type == ResourceType.SOURCE:
-            # We need to go 1 level deeper for sources
-            yaml_source = next((r for r in yaml_resources if r["name"] == self.source_name), None)
+        if isinstance(self.resource, Source):
+            # Sources: navigate to source -> tables -> table
+            yaml_source = next((r for r in yaml_resources if r["name"] == self.resource.source_name), None)
             if not yaml_source:
-                msg = f"Source {self.source_name} not found in {self.path}"
+                msg = f"Source {self.resource.source_name} not found in {self.path}"
                 raise PumpkinError(msg)
 
             yaml_resources = yaml_source.setdefault("tables", [])
 
+        # Find the resource entry
         yaml_resource = next((r for r in yaml_resources if r["name"] == self.resource_name), None)
         if not yaml_resource:
             msg = f"Resource {self.resource_name} not found in {self.path}"
             raise PumpkinError(msg)
 
+        # For versioned models, navigate to versions[i].columns
+        if isinstance(self.resource, Model) and self.resource.version:
+            versions = yaml_resource.get("versions", [])
+            if not versions:
+                msg = f"Versioned model {self.resource_name} has no versions array in {self.path}"
+                raise PumpkinError(msg)
+
+            version_entry = next((v for v in versions if v.get("v") == self.resource.version), None)
+            if not version_entry:
+                msg = f"Version {self.resource.version} not found for model {self.resource_name} in {self.path}"
+                raise PumpkinError(msg)
+
+            return version_entry.setdefault("columns", [])
+
+        # For non-versioned resources, use model-level columns
         return yaml_resource.setdefault("columns", [])
 
 
 @dataclass(frozen=True)
 class AddResourceColumn(ResourceColumnAction):
-    column_name: str
-    column_quote: bool
-    column_type: str
+    column: ResourceColumn
 
     def describe(self) -> str:
+        version_suffix = f".v{self.resource.version}" if isinstance(self.resource, Model) and self.resource.version else ""
         return (
-            f"Add column {self.resource_type} {self.resource_name} {self.column_name} {self.column_type} at {self.path}"
+            f"Add column {self.resource_type} {self.resource_name}{version_suffix} {self.column.name} {self.column.data_type} at {self.path}"
         )
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
 
         # make sure properties are ordered as expected
-        yaml_column = {"name": self.column_name}
-        if self.column_quote:
+        yaml_column = {"name": self.column.name}
+        if self.column.quote:
             yaml_column["quote"] = True
-        yaml_column["data_type"] = self.column_type
+        yaml_column["data_type"] = self.column.data_type
 
         yaml_columns.append(yaml_column)
 
 
 @dataclass(frozen=True)
 class UpdateResourceColumn(ResourceColumnAction):
-    column_name: str
-    column_type: str
+    column: ResourceColumn
 
     def describe(self) -> str:
-        return f"Update column {self.resource_type} {self.resource_name} {self.column_name} {self.column_type} at {self.path}"
+        version_suffix = f".v{self.resource.version}" if isinstance(self.resource, Model) and self.resource.version else ""
+        return f"Update column {self.resource_type} {self.resource_name}{version_suffix} {self.column.name} {self.column.data_type} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
-        yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
+        yaml_column = next((c for c in yaml_columns if c["name"] == self.column.name), None)
         if not yaml_column:
-            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+            msg = f"Column {self.column.name} not found in {self.resource_type} {self.resource_name}"
             raise PumpkinError(msg)
 
-        yaml_column["data_type"] = self.column_type
+        yaml_column["data_type"] = self.column.data_type
 
 
 @dataclass(frozen=True)
@@ -199,13 +225,14 @@ class DeleteResourceColumn(ResourceColumnAction):
     column_name: str
 
     def describe(self) -> str:
-        return f"Delete column {self.resource_type} {self.resource_name} {self.column_name} at {self.path}"
+        version_suffix = f".v{self.resource.version}" if isinstance(self.resource, Model) and self.resource.version else ""
+        return f"Delete column {self.resource_type} {self.resource_name}{version_suffix} {self.column_name} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
         yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
         if not yaml_column:
-            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_name}"
             raise PumpkinError(msg)
 
         yaml_columns.remove(yaml_column)
@@ -221,7 +248,8 @@ class ReorderResourceColumns(ResourceColumnAction):
             raise PumpkinError(msg)
 
     def describe(self) -> str:
-        return f"Reorder columns {self.resource_type} {self.resource_name} at {self.path}"
+        version_suffix = f".v{self.resource.version}" if isinstance(self.resource, Model) and self.resource.version else ""
+        return f"Reorder columns {self.resource_type} {self.resource_name}{version_suffix} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)

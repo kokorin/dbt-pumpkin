@@ -69,7 +69,7 @@ def cli(*_, project_dir: Path, profiles_dir: Path, keep: bool, models: int):
     models_dir.mkdir(parents=True, exist_ok=True)
 
     for i in range(1, models + 1):
-        model_path = models_dir / f"model_{i}.sql"
+        model_path = models_dir / f"model_v{i}.sql"
         model_path.write_text(
             textwrap.dedent("""\
             select 1 as id

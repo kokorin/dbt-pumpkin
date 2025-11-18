@@ -115,20 +115,24 @@ def test_bootstrap_no_yaml_path(no_yaml_path_resources):
 
 
 def test_bootstrap_yaml_per_resource(separate_yaml_resources):
+    # Get the stg_orders resource from the fixture
+    stg_orders = next(r for r in separate_yaml_resources if r.name == "stg_orders")
+
     assert set(BootstrapPlanner(separate_yaml_resources).plan().actions) == {
         BootstrapResource(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_orders",
+            resource=stg_orders,
             path=Path("models/staging/_stg_orders.yml"),
         )
     }
 
 
 def test_bootstrap_yaml_actual_paths(actual_yaml_resources):
+    # Get the stg_orders resource from the fixture
+    stg_orders = next(r for r in actual_yaml_resources if r.name == "stg_orders")
+
     assert set(BootstrapPlanner(actual_yaml_resources).plan().actions) == {
         BootstrapResource(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_orders",
+            resource=stg_orders,
             path=Path("models/staging/_schema.yml"),
         )
     }
@@ -143,16 +147,18 @@ def test_relocation_no_yaml_path(no_yaml_path_resources):
 
 
 def test_relocation_yaml_per_resource(separate_yaml_resources):
+    # Get the resources from the fixture
+    stg_customers = next(r for r in separate_yaml_resources if r.name == "stg_customers")
+    ingested = next(r for r in separate_yaml_resources if hasattr(r, 'source_name') and r.source_name == "ingested")
+
     assert RelocationPlanner(separate_yaml_resources).plan().actions == [
         RelocateResource(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
+            resource=stg_customers,
             from_path=Path("models/staging/_schema.yml"),
             to_path=Path("models/staging/_stg_customers.yml"),
         ),
         RelocateResource(
-            resource_type=ResourceType.SOURCE,
-            resource_name="ingested",
+            resource=ingested,
             from_path=Path("models/staging/_sources.yml"),
             to_path=Path("models/staging/_ingested.yml"),
         ),
@@ -203,13 +209,9 @@ def test_synchronization_only_add():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="NAME",
-            column_quote=False,
-            column_type="VARCHAR",
+            column=ResourceColumn(name="NAME", quote=False, data_type="VARCHAR", description=None),
         ),
     ]
 
@@ -243,22 +245,14 @@ def test_synchronization_add_numeric_precision_and_scale():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="ID",
-            column_quote=False,
-            column_type="NUMBER(38,0)",
+            column=ResourceColumn(name="ID", quote=False, data_type="NUMBER(38,0)", description=None),
         ),
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="NAME",
-            column_quote=False,
-            column_type="VARCHAR",
+            column=ResourceColumn(name="NAME", quote=False, data_type="VARCHAR", description=None),
         ),
     ]
 
@@ -292,22 +286,14 @@ def test_synchronization_add_string_length():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="ID",
-            column_quote=False,
-            column_type="NUMBER",
+            column=ResourceColumn(name="ID", quote=False, data_type="NUMBER", description=None),
         ),
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="NAME",
-            column_quote=False,
-            column_type="character varying(256)",
+            column=ResourceColumn(name="NAME", quote=False, data_type="character varying(256)", description=None),
         ),
     ]
 
@@ -344,12 +330,9 @@ def test_synchronization_only_update():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="id",
-            column_type="INTEGER",
+            column=ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
         ),
     ]
 
@@ -419,12 +402,9 @@ def test_synchronization_update_numeric_precision_and_scale():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="id",
-            column_type="NUMBER(38,0)",
+            column=ResourceColumn(name="id", quote=False, data_type="NUMBER(38,0)", description=""),
         ),
     ]
 
@@ -461,12 +441,9 @@ def test_synchronization_update_string_length():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="name",
-            column_type="character varying(256)",
+            column=ResourceColumn(name="name", quote=False, data_type="character varying(256)", description=""),
         ),
     ]
 
@@ -504,9 +481,7 @@ def test_synchronization_only_delete():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         DeleteResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
             column_name="LAST NAME",
         ),
@@ -547,33 +522,22 @@ def test_synchronization_all_actions():
 
     assert SynchronizationPlanner([resource], [table]).plan().actions == [
         UpdateResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="id",
-            column_type="INTEGER",
+            column=ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
         ),
         AddResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
-            column_name="BIRTH_DATE",
-            column_quote=False,
-            column_type="DATE",
+            column=ResourceColumn(name="BIRTH_DATE", quote=False, data_type="DATE", description=None),
         ),
         DeleteResourceColumn(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
             column_name="LAST NAME",
         ),
         ReorderResourceColumns(
-            resource_type=ResourceType.MODEL,
-            resource_name="stg_customers",
-            source_name=None,
+            resource=resource,
             path=Path("models/staging/_schema.yml"),
             columns_order=["id", "BIRTH_DATE", "name"],
         ),

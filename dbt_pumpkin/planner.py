@@ -60,7 +60,7 @@ class BootstrapPlanner(ActionPlanner):
                     logger.debug("Planned bootstrap action: %s", resource.unique_id)
 
                     yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
-                    actions.append(BootstrapResource(resource.type, resource.name, yaml_path))
+                    actions.append(BootstrapResource(resource=resource, path=yaml_path))
 
         return Plan(actions)
 
@@ -102,7 +102,7 @@ class RelocationPlanner(ActionPlanner):
                     to_yaml_path = path_resolver.resolve(resource.config.yaml_path_template, resource.name, resource.path)
                     if resource.yaml_path != to_yaml_path:
                         logger.debug("Planned relocate action: %s", resource.unique_id)
-                        actions.append(RelocateResource(resource.type, resource.name, resource.yaml_path, to_yaml_path))
+                        actions.append(RelocateResource(resource=resource, from_path=resource.yaml_path, to_path=to_yaml_path))
                         cleanup_paths.add(resource.yaml_path)
 
         for source_name, source_tables in sources.items():
@@ -125,7 +125,8 @@ class RelocationPlanner(ActionPlanner):
 
             if yaml_path != to_yaml_path:
                 logger.debug("Planned relocate action: %s", source_name)
-                actions.append(RelocateResource(ResourceType.SOURCE, source_name, yaml_path, to_yaml_path))
+                # Use the first source table as the resource representative for the whole source
+                actions.append(RelocateResource(resource=source_tables[0], from_path=yaml_path, to_path=to_yaml_path))
                 cleanup_paths.add(yaml_path)
 
         actions += [DeleteEmptyDescriptor(to_cleanup) for to_cleanup in sorted(cleanup_paths)]
@@ -163,9 +164,6 @@ class SynchronizationPlanner(ActionPlanner):
 
         result: list[Action] = []
 
-        resource_type = resource.type
-        source_name = resource.source_name if isinstance(resource, Source) else None
-
         # resource column names AFTER applying all Add and Delete actions
         # this list will be modified during planning
         resource_column_names: list[str] = [c.name for c in resource.columns]
@@ -176,15 +174,17 @@ class SynchronizationPlanner(ActionPlanner):
 
             if not resource_column:
                 logger.debug("Planned add column action: %s %s", table_column.name, resource.unique_id)
+                new_column = ResourceColumn(
+                    name=table_column.name,
+                    quote=self._quote(table_column.name),
+                    data_type=column_data_type,
+                    description=None,
+                )
                 result.append(
                     AddResourceColumn(
-                        resource_type=resource_type,
-                        resource_name=resource.name,
+                        resource=resource,
                         path=resource.yaml_path,
-                        source_name=source_name,
-                        column_name=table_column.name,
-                        column_quote=self._quote(table_column.name),
-                        column_type=column_data_type,
+                        column=new_column,
                     )
                 )
                 resource_column_names.append(table_column.name)
@@ -192,14 +192,17 @@ class SynchronizationPlanner(ActionPlanner):
 
             if resource_column.data_type is None or column_data_type.lower() != resource_column.data_type.lower():
                 logger.debug("Planned update column action: %s %s", table_column.name, resource.unique_id)
+                updated_column = ResourceColumn(
+                    name=resource_column.name,
+                    quote=resource_column.quote,
+                    data_type=column_data_type,
+                    description=resource_column.description,
+                )
                 result.append(
                     UpdateResourceColumn(
-                        resource_type=resource_type,
-                        resource_name=resource.name,
+                        resource=resource,
                         path=resource.yaml_path,
-                        source_name=source_name,
-                        column_name=resource_column.name,
-                        column_type=column_data_type,
+                        column=updated_column,
                     )
                 )
 
@@ -209,10 +212,8 @@ class SynchronizationPlanner(ActionPlanner):
                 logger.debug("Planned delete column action: %s %s", resource_column.name, resource.unique_id)
                 result.append(
                     DeleteResourceColumn(
-                        resource_type=resource_type,
-                        resource_name=resource.name,
+                        resource=resource,
                         path=resource.yaml_path,
-                        source_name=source_name,
                         column_name=resource_column.name,
                     )
                 )
@@ -226,10 +227,8 @@ class SynchronizationPlanner(ActionPlanner):
             column_order = [resource_column_by_uppercase_name.get(c.name.upper(), c).name for c in table.columns]
             result.append(
                 ReorderResourceColumns(
-                    resource_type=resource_type,
-                    resource_name=resource.name,
+                    resource=resource,
                     path=resource.yaml_path,
-                    source_name=source_name,
                     columns_order=column_order,
                 )
             )
