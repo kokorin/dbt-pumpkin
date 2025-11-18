@@ -2,6 +2,7 @@ __pycache__
 /.hatch
 /.vscode
 /.idea
+/.claude
 /dist
 
 #coverage reports
