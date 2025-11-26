@@ -244,7 +244,9 @@ class SynchronizationPlanner(ActionPlanner):
 
         if resource_column_normalized_names != table_column_normalized_names:
             logger.debug("Planned reorder column action: %s", resource.unique_id)
-            column_order = [resource_column_by_normalized_name.get(c.name.upper(), c).name for c in table.columns]
+            column_order = [
+                resource_column_by_normalized_name.get(normalize_name(c.name), c).name for c in table.columns
+            ]
             result.append(
                 ReorderResourceColumns(
                     resource_type=resource.type,

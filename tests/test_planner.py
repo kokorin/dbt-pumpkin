@@ -746,3 +746,48 @@ def test_synchronization_ambiguous_columns_mismatch():
             column_name="FIRST_NAME",
         ),
     ]
+
+
+def test_synchronization_ambiguous_columns_with_reorder():
+    """Test that reorder works correctly with ambiguous columns using exact match."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            ResourceColumn(name="Name", quote=False, data_type="VARCHAR", description=""),
+            ResourceColumn(name="NAME", quote=False, data_type="VARCHAR", description=""),
+            ResourceColumn(name="id", quote=False, data_type="INTEGER", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="Name", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Should use exact match and reorder columns to match table order
+    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+        ReorderResourceColumns(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            columns_order=["id", "Name", "NAME"],
+        ),
+    ]
