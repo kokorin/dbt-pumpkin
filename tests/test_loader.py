@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from dbt_pumpkin.data import (
+    CaseFolding,
     Resource,
     ResourceColumn,
     ResourceConfig,
@@ -790,3 +791,16 @@ def test_detect_yaml_format_backward_compatibility():
         )
     )
     assert loader.detect_yaml_format() == YamlFormat(indent=2, offset=2)
+
+
+def test_detect_case_folding(loader_all):
+    """Test that case folding detection returns a valid CaseFolding enum."""
+    case_folding = loader_all.detect_case_folding()
+
+    # Should return one of the valid CaseFolding enum values
+    assert isinstance(case_folding, CaseFolding)
+    assert case_folding in [CaseFolding.UPPER, CaseFolding.LOWER, CaseFolding.PRESERVE, CaseFolding.UNKNOWN]
+
+    # For DuckDB (used in tests), we expect PRESERVE case folding
+    # DuckDB preserves the case of unquoted identifiers
+    assert case_folding == CaseFolding.PRESERVE

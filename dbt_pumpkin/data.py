@@ -54,6 +54,15 @@ class ResourceType(Enum):
         return self.value
 
 
+class CaseFolding(Enum):
+    """Database identifier case folding behavior."""
+
+    UPPER = "upper"  # Database folds unquoted identifiers to uppercase (e.g., Snowflake, Oracle)
+    LOWER = "lower"  # Database folds unquoted identifiers to lowercase (e.g., PostgreSQL, Redshift)
+    PRESERVE = "preserve"  # Database preserves case of unquoted identifiers (e.g., some MySQL configurations)
+    UNKNOWN = "unknown"  # Could not detect folding behavior, fall back to always quoting
+
+
 @dataclass(frozen=True)
 class TableColumn:
     name: str

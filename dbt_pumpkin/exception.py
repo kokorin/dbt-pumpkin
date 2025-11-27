@@ -27,3 +27,9 @@ class PropertyNotAllowedError(PumpkinError):
     def __init__(self, property_name, details):
         msg = f"Property  {property_name} is not allowed: {details}"
         super().__init__(msg)
+
+
+class UnexpectedValueError(PumpkinError):
+    def __init__(self, value_name, value):
+        msg = f"Unexpected {value_name} value: {value}"
+        super().__init__(msg)

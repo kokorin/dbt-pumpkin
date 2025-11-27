@@ -2,7 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from dbt_pumpkin.data import Resource, ResourceColumn, ResourceConfig, ResourceID, ResourceType, Table, TableColumn
+from dbt_pumpkin.data import (
+    CaseFolding,
+    Resource,
+    ResourceColumn,
+    ResourceConfig,
+    ResourceID,
+    ResourceType,
+    Table,
+    TableColumn,
+)
 from dbt_pumpkin.plan import (
     AddResourceColumn,
     BootstrapResource,
@@ -176,8 +185,8 @@ def test_relocation_yaml_actual_paths(actual_yaml_resources):
 
 
 def test_synchronization_no_resources():
-    assert [] == SynchronizationPlanner([], []).plan().actions
-    assert [] == SynchronizationPlanner([], []).plan().actions
+    assert [] == SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions
+    assert [] == SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions
 
 
 def test_synchronization_only_add():
@@ -209,7 +218,7 @@ def test_synchronization_only_add():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -251,7 +260,7 @@ def test_synchronization_add_numeric_precision_and_scale():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -302,7 +311,7 @@ def test_synchronization_add_string_length():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -356,7 +365,7 @@ def test_synchronization_only_update():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -400,7 +409,7 @@ def test_synchronization_no_update_when_datatypes_match_ignorecase():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == []
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == []
 
 
 def test_synchronization_update_numeric_precision_and_scale():
@@ -435,7 +444,7 @@ def test_synchronization_update_numeric_precision_and_scale():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -479,7 +488,7 @@ def test_synchronization_update_string_length():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -524,7 +533,7 @@ def test_synchronization_only_delete():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         DeleteResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -569,7 +578,7 @@ def test_synchronization_all_actions():
         ],
     )
 
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         UpdateResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -638,7 +647,7 @@ def test_synchronization_ambiguous_columns_in_resource():
     )
 
     # Should use exact match and produce no actions
-    assert SynchronizationPlanner([resource], [table]).plan().actions == []
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == []
 
 
 def test_synchronization_ambiguous_columns_in_table():
@@ -674,7 +683,7 @@ def test_synchronization_ambiguous_columns_in_table():
     )
 
     # Should use exact match: resource "name" matches table "name", table "NAME" is new
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
@@ -721,14 +730,15 @@ def test_synchronization_ambiguous_columns_mismatch():
 
     # Should use exact match: no exact match for "first_name" in resource, so add it
     # Delete both "First_Name" and "FIRST_NAME"
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    # Note: "first_name" needs quoting because it differs from "FIRST_NAME" (UPPER folding)
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         AddResourceColumn(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
             column_name="first_name",
-            column_quote=False,
+            column_quote=True,  # Lowercase needs quoting with UPPER folding
             column_type="VARCHAR",
         ),
         DeleteResourceColumn(
@@ -782,12 +792,340 @@ def test_synchronization_ambiguous_columns_with_reorder():
     )
 
     # Should use exact match and reorder columns to match table order
-    assert SynchronizationPlanner([resource], [table]).plan().actions == [
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
         ReorderResourceColumns(
             resource_type=ResourceType.MODEL,
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
             columns_order=["id", "Name", "NAME"],
+        ),
+    ]
+
+
+def test_synchronization_with_upper_case_folding():
+    """Test that mixed-case columns get quoted with UPPER case folding."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            # Standard uppercase column - no quoting needed
+            TableColumn(name="ID", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            # Mixed case column - needs quoting
+            TableColumn(name="CustomerId", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            # Lowercase column - needs quoting (differs from uppercase)
+            TableColumn(name="email", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions
+
+    assert len(actions) == 3
+    assert actions[0] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="ID",
+        column_quote=False,  # Standard uppercase, no quoting
+        column_type="INTEGER",
+    )
+    assert actions[1] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="CustomerId",
+        column_quote=True,  # Mixed case, needs quoting
+        column_type="VARCHAR",
+    )
+    assert actions[2] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="email",
+        column_quote=True,  # Lowercase, needs quoting
+        column_type="VARCHAR",
+    )
+
+
+def test_synchronization_with_lower_case_folding():
+    """Test that mixed-case columns get quoted with LOWER case folding."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            # Standard lowercase column - no quoting needed
+            TableColumn(name="id", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            # Mixed case column - needs quoting
+            TableColumn(name="CustomerId", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            # Uppercase column - needs quoting (differs from lowercase)
+            TableColumn(name="EMAIL", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.LOWER).plan().actions
+
+    assert len(actions) == 3
+    assert actions[0] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="id",
+        column_quote=False,  # Standard lowercase, no quoting
+        column_type="INTEGER",
+    )
+    assert actions[1] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="CustomerId",
+        column_quote=True,  # Mixed case, needs quoting
+        column_type="VARCHAR",
+    )
+    assert actions[2] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_name="EMAIL",
+        column_quote=True,  # Uppercase, needs quoting
+        column_type="VARCHAR",
+    )
+
+
+def test_synchronization_special_characters_always_quoted():
+    """Test that columns with special characters are always quoted regardless of case folding."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="FIRST NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="USER-ID", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions
+
+    # Both should be quoted due to special characters
+    assert actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="FIRST NAME",
+            column_quote=True,  # Space in name
+            column_type="VARCHAR",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="USER-ID",
+            column_quote=True,  # Hyphen in name
+            column_type="VARCHAR",
+        ),
+    ]
+
+
+def test_synchronization_reserved_words_always_quoted():
+    """Test that SQL reserved words are always quoted regardless of case folding."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ORDER", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="user", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="Select", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="Group", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="table", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+            TableColumn(name="DESCRIBE", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Test with UPPER folding - reserved words should still be quoted
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions
+
+    assert actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="ORDER",
+            column_quote=True,  # Reserved word
+            column_type="INTEGER",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="user",
+            column_quote=True,  # Reserved word (case-insensitive)
+            column_type="VARCHAR",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="Select",
+            column_quote=True,  # Reserved word (case-insensitive)
+            column_type="VARCHAR",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="Group",
+            column_quote=True,  # Reserved word
+            column_type="VARCHAR",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="table",
+            column_quote=True,  # Reserved word
+            column_type="VARCHAR",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="DESCRIBE",
+            column_quote=True,  # Reserved word
+            column_type="VARCHAR",
+        ),
+    ]
+
+
+def test_synchronization_unknown_case_folding():
+    """Test fallback behavior when case folding detection fails (UNKNOWN)."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ID", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="CustomerId", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # Pass UNKNOWN for case_folding - detection failed
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.UNKNOWN).plan().actions
+
+    # With UNKNOWN, always quote for safety
+    assert actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="ID",
+            column_quote=True,  # UNKNOWN - quoted for safety
+            column_type="INTEGER",
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            column_name="CustomerId",
+            column_quote=True,  # UNKNOWN - quoted for safety
+            column_type="VARCHAR",
         ),
     ]

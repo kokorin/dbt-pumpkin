@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-from dbt_pumpkin.data import Resource, ResourceConfig, ResourceType, Table, TableColumn
-from dbt_pumpkin.exception import PumpkinError
+from dbt_pumpkin.data import CaseFolding, Resource, ResourceConfig, ResourceType, Table, TableColumn
+from dbt_pumpkin.exception import PumpkinError, UnexpectedValueError
 from dbt_pumpkin.plan import (
     Action,
     AddResourceColumn,
@@ -132,13 +132,232 @@ class RelocationPlanner(ActionPlanner):
 
 
 class SynchronizationPlanner(ActionPlanner):
-    def __init__(self, resources: list[Resource], tables: list[Table]):
+    # SQL reserved words that require quoting
+    # Includes ANSI SQL standard keywords and common database-specific keywords
+    _RESERVED_WORDS = frozenset(
+        {
+            # DML/DDL commands
+            "ALTER",
+            "CREATE",
+            "DELETE",
+            "DROP",
+            "GRANT",
+            "INSERT",
+            "REVOKE",
+            "SELECT",
+            "TRUNCATE",
+            "UPDATE",
+            "RENAME",
+            "COMMENT",
+            # Database objects
+            "DATABASE",
+            "SCHEMA",
+            "TABLE",
+            "VIEW",
+            "INDEX",
+            "SEQUENCE",
+            "PROCEDURE",
+            "FUNCTION",
+            "TRIGGER",
+            "COLUMN",
+            # Transaction control
+            "COMMIT",
+            "ROLLBACK",
+            "SAVEPOINT",
+            "START",
+            "BEGIN",
+            "TRANSACTION",
+            # Clauses
+            "FROM",
+            "WHERE",
+            "HAVING",
+            "GROUP",
+            "ORDER",
+            "BY",
+            "LIMIT",
+            "OFFSET",
+            "PARTITION",
+            "OVER",
+            "WINDOW",
+            "QUALIFY",
+            "RETURNING",
+            # Joins
+            "JOIN",
+            "INNER",
+            "LEFT",
+            "RIGHT",
+            "FULL",
+            "CROSS",
+            "OUTER",
+            "NATURAL",
+            "LATERAL",
+            # Set operations
+            "UNION",
+            "INTERSECT",
+            "EXCEPT",
+            "MINUS",
+            # Logical operators
+            "AND",
+            "OR",
+            "NOT",
+            "IN",
+            "EXISTS",
+            "BETWEEN",
+            "LIKE",
+            "IS",
+            # Comparison and sorting
+            "ASC",
+            "DESC",
+            "DISTINCT",
+            "ALL",
+            "ANY",
+            "SOME",
+            # Conditionals
+            "CASE",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "END",
+            "IF",
+            "ELSEIF",
+            "NULLIF",
+            "COALESCE",
+            # Data types
+            "INT",
+            "INTEGER",
+            "BIGINT",
+            "SMALLINT",
+            "TINYINT",
+            "DECIMAL",
+            "NUMERIC",
+            "FLOAT",
+            "REAL",
+            "DOUBLE",
+            "CHAR",
+            "VARCHAR",
+            "TEXT",
+            "BLOB",
+            "CLOB",
+            "DATE",
+            "TIME",
+            "TIMESTAMP",
+            "INTERVAL",
+            "BOOLEAN",
+            "BOOL",
+            "YEAR",
+            "MONTH",
+            "DAY",
+            "HOUR",
+            "MINUTE",
+            "SECOND",
+            # Constraints
+            "PRIMARY",
+            "FOREIGN",
+            "REFERENCES",
+            "KEY",
+            "CHECK",
+            "UNIQUE",
+            "CONSTRAINT",
+            "DEFAULT",
+            "DEFERRABLE",
+            "INITIALLY",
+            "IMMEDIATE",
+            "DEFERRED",
+            "CASCADE",
+            "RESTRICT",
+            "NO",
+            "ACTION",
+            # Special values
+            "NULL",
+            "TRUE",
+            "FALSE",
+            "UNKNOWN",
+            # Functions and keywords
+            "CAST",
+            "EXTRACT",
+            "SUBSTRING",
+            "TRIM",
+            "CURRENT_DATE",
+            "CURRENT_TIME",
+            "CURRENT_TIMESTAMP",
+            "CURRENT_USER",
+            "SESSION_USER",
+            "SYSTEM_USER",
+            "USER",
+            "COUNT",
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX",
+            # Window functions
+            "ROWS",
+            "RANGE",
+            "UNBOUNDED",
+            "PRECEDING",
+            "FOLLOWING",
+            "CURRENT",
+            # Other common keywords
+            "AS",
+            "ON",
+            "USING",
+            "INTO",
+            "VALUES",
+            "SET",
+            "FOR",
+            "TO",
+            "WITH",
+            "FETCH",
+            "RECURSIVE",
+            "COLLATE",
+            "DESCRIBE",
+            # Control flow (stored procedures)
+            "LOOP",
+            "WHILE",
+            "REPEAT",
+            "UNTIL",
+            "DECLARE",
+            "CURSOR",
+            "OPEN",
+            "CLOSE",
+            # PostgreSQL specific (but common)
+            "CONFLICT",
+            "NOTHING",
+            "EXCLUDED",
+        }
+    )
+
+    def __init__(self, resources: list[Resource], tables: list[Table], case_folding: CaseFolding):
         self._resources = resources
         self._tables = tables
+        self._case_folding = case_folding
         self._dont_quote_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
     def _quote(self, name: str) -> bool:
-        return self._dont_quote_re.match(name) is None
+        from dbt_pumpkin.data import CaseFolding
+
+        # First check for special characters that always require quoting
+        if self._dont_quote_re.match(name) is None:
+            return True
+
+        # Check if it's a reserved word (case-insensitive check)
+        if name.upper() in self._RESERVED_WORDS:
+            return True
+
+        # Apply case folding rules
+        if self._case_folding == CaseFolding.PRESERVE:
+            # Be safe and quote everything when case is preserved
+            return True
+        if self._case_folding == CaseFolding.UPPER:
+            # Quote if column name differs from uppercase version
+            return name != name.upper()
+        if self._case_folding == CaseFolding.LOWER:
+            # Quote if column name differs from lowercase version
+            return name != name.lower()
+        if self._case_folding == CaseFolding.UNKNOWN:
+            # Fall back to always quoting when we can't detect
+            return True
+
+        raise UnexpectedValueError(CaseFolding, self._case_folding)
 
     def _column_type(self, column: TableColumn, config: ResourceConfig) -> str:
         if column.is_numeric and config.numeric_precision_and_scale or column.is_string and config.string_length:

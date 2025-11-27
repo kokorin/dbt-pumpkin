@@ -19,6 +19,7 @@ from dbt.cli.resolvers import default_project_dir
 from ruamel.yaml import YAML
 
 from dbt_pumpkin.data import (
+    CaseFolding,
     Resource,
     ResourceColumn,
     ResourceConfig,
@@ -46,6 +47,7 @@ class ResourceLoader:
         self._resource_ids: dict[ResourceType, set[ResourceID]] = None
         self._resources: list[Resource] = None
         self._tables: list[Table] = None
+        self._case_folding: CaseFolding = None
         self._yaml = YAML(typ="safe")
 
     def _do_load_manifest(self) -> Manifest:
@@ -369,3 +371,64 @@ class ResourceLoader:
         if self._tables is None:
             self._tables = self._do_lookup_tables()
         return self._tables
+
+    def _do_detect_case_folding(self) -> CaseFolding:
+        """
+        Detect database identifier case folding behavior.
+
+        Uses a test query with known case variations to determine how the database
+        handles unquoted identifiers.
+        """
+        logger.info("Detecting database case folding behavior")
+
+        project_vars = {
+            "detect_case_folding": True,
+        }
+
+        detected_folding: CaseFolding | None = None
+
+        def on_result(result: dict):
+            nonlocal detected_folding
+
+            columns: list[str] = result.get("columns", [])
+            logger.debug("Test query returned columns: %s", columns)
+
+            if len(columns) != 2:  # noqa: PLR2004
+                logger.warning("Unexpected result from case folding detection query")
+                detected_folding = CaseFolding.UNKNOWN
+                return
+
+            # Test columns were: test_lower, TEST_UPPER
+            lower_col = columns[0]
+            upper_col = columns[1]
+
+            if lower_col == "TEST_LOWER" and upper_col == "TEST_UPPER":
+                detected_folding = CaseFolding.UPPER
+                logger.info("Detected case folding: UPPER (e.g., Snowflake, Oracle)")
+            elif lower_col == "test_lower" and upper_col == "test_upper":
+                detected_folding = CaseFolding.LOWER
+                logger.info("Detected case folding: LOWER (e.g., PostgreSQL, Redshift)")
+            elif lower_col == "test_lower" and upper_col == "TEST_UPPER":
+                detected_folding = CaseFolding.PRESERVE
+                logger.info("Detected case folding: PRESERVE (e.g., some MySQL configurations)")
+            else:
+                logger.warning("Unexpected case folding behavior: %s, %s", lower_col, upper_col)
+                detected_folding = CaseFolding.UNKNOWN
+
+        try:
+            self._run_operation("detect_case_folding", project_vars, on_result)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to detect case folding behavior: %s", e)
+            detected_folding = CaseFolding.UNKNOWN
+
+        if detected_folding is None:
+            logger.warning("No result from case folding detection, falling back to UNKNOWN")
+            detected_folding = CaseFolding.UNKNOWN
+
+        return detected_folding
+
+    def detect_case_folding(self) -> CaseFolding:
+        """Get the database's case folding behavior, detecting it on first call."""
+        if self._case_folding is None:
+            self._case_folding = self._do_detect_case_folding()
+        return self._case_folding
