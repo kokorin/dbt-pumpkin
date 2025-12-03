@@ -372,7 +372,9 @@ def test_update_resource_column(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        column_index=0,
         column_name="id",
+        column_quote=False,
         column_type="bigint",
     )
 
@@ -405,13 +407,57 @@ def test_update_resource_column(files):
     assert files == expected
 
 
+def test_update_resource_column_renames(files):
+    """Test that update renames column when name differs."""
+    action = UpdateResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_index=0,
+        column_name="ID",  # Different case
+        column_quote=False,
+        column_type="bigint",
+    )
+
+    (expected := copy.deepcopy(files)).update(
+        {
+            Path("models/staging/_schema.yml"): {
+                "version": 2,
+                "models": [
+                    {
+                        "name": "stg_customers",
+                        "columns": [
+                            {"name": "ID", "data_type": "bigint", "tests": ["not_null", "unique"]},
+                            {"name": "name", "data_type": "varchar", "tests": ["not_null"]},
+                        ],
+                    },
+                    {
+                        "name": "int_customers",
+                        "columns": [
+                            {"name": "id"},
+                            {"name": "name"},
+                        ],
+                    },
+                ],
+            },
+        }
+    )
+
+    action.execute(files)
+
+    assert files == expected
+
+
 def test_update_resource_column_no_resource_error(files):
     action = UpdateResourceColumn(
         resource_type=ResourceType.MODEL,
         resource_name="unknown",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        column_index=0,
         column_name="id",
+        column_quote=False,
         column_type="bigint",
     )
 
@@ -419,18 +465,124 @@ def test_update_resource_column_no_resource_error(files):
         action.execute(files)
 
 
-def test_update_resource_column_no_column_error(files):
+def test_update_resource_column_index_out_of_range_error(files):
     action = UpdateResourceColumn(
         resource_type=ResourceType.MODEL,
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
-        column_name="unknown",
-        column_type="variant",
+        column_index=99,
+        column_name="id",
+        column_quote=False,
+        column_type="bigint",
     )
 
     with pytest.raises(PumpkinError):
         action.execute(files)
+
+
+def test_update_resource_column_name_mismatch_error(files):
+    """Test that update fails if column name at index doesn't match (case-insensitive)."""
+    action = UpdateResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_index=0,
+        column_name="wrong_name",  # Doesn't match "id" at index 0
+        column_quote=False,
+        column_type="bigint",
+    )
+
+    with pytest.raises(PumpkinError):
+        action.execute(files)
+
+
+def test_update_resource_column_adds_quote(files):
+    """Test that updating a column with column_quote=True adds the quote attribute."""
+    action = UpdateResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_index=0,
+        column_name="id",
+        column_quote=True,
+        column_type="bigint",
+    )
+
+    (expected := copy.deepcopy(files)).update(
+        {
+            Path("models/staging/_schema.yml"): {
+                "version": 2,
+                "models": [
+                    {
+                        "name": "stg_customers",
+                        "columns": [
+                            {"name": "id", "quote": True, "data_type": "bigint", "tests": ["not_null", "unique"]},
+                            {"name": "name", "data_type": "varchar", "tests": ["not_null"]},
+                        ],
+                    },
+                    {
+                        "name": "int_customers",
+                        "columns": [
+                            {"name": "id"},
+                            {"name": "name"},
+                        ],
+                    },
+                ],
+            },
+        }
+    )
+
+    action.execute(files)
+
+    assert files == expected
+
+
+def test_update_resource_column_removes_quote(files):
+    """Test that updating a column with column_quote=False removes the quote attribute."""
+    # First, set up a column with quote: true
+    files[Path("models/staging/_schema.yml")]["models"][0]["columns"][0]["quote"] = True
+
+    action = UpdateResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="stg_customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        column_index=0,
+        column_name="id",
+        column_quote=False,
+        column_type="bigint",
+    )
+
+    (expected := copy.deepcopy(files)).update(
+        {
+            Path("models/staging/_schema.yml"): {
+                "version": 2,
+                "models": [
+                    {
+                        "name": "stg_customers",
+                        "columns": [
+                            {"name": "id", "data_type": "bigint", "tests": ["not_null", "unique"]},
+                            {"name": "name", "data_type": "varchar", "tests": ["not_null"]},
+                        ],
+                    },
+                    {
+                        "name": "int_customers",
+                        "columns": [
+                            {"name": "id"},
+                            {"name": "name"},
+                        ],
+                    },
+                ],
+            },
+        }
+    )
+
+    action.execute(files)
+
+    assert files == expected
 
 
 def test_delete_resource_column(files):
@@ -439,7 +591,7 @@ def test_delete_resource_column(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
-        column_name="name",
+        column_index=1,  # Delete "name" at index 1
     )
 
     (expected := copy.deepcopy(files)).update(
@@ -476,20 +628,20 @@ def test_delete_resource_column_no_resource_error(files):
         resource_name="unknown",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
-        column_name="name",
+        column_index=0,
     )
 
     with pytest.raises(PumpkinError):
         action.execute(files)
 
 
-def test_delete_resource_column_no_column_error(files):
+def test_delete_resource_column_index_out_of_range_error(files):
     action = DeleteResourceColumn(
         resource_type=ResourceType.MODEL,
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
-        column_name="unknown",
+        column_index=99,
     )
 
     with pytest.raises(PumpkinError):

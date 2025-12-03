@@ -46,6 +46,7 @@ class Pumpkin:
         def create_planner(loader: ResourceLoader) -> ActionPlanner:
             resources = loader.select_resources()
             tables = loader.lookup_tables()
-            return SynchronizationPlanner(resources, tables)
+            case_folding = loader.detect_case_folding()
+            return SynchronizationPlanner(resources, tables, case_folding)
 
         self._execute(create_planner, dry_run=dry_run)

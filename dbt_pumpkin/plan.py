@@ -178,7 +178,9 @@ class AddResourceColumn(ResourceColumnAction):
 
 @dataclass(frozen=True)
 class UpdateResourceColumn(ResourceColumnAction):
+    column_index: int
     column_name: str
+    column_quote: bool
     column_type: str
 
     def describe(self) -> str:
@@ -186,29 +188,44 @@ class UpdateResourceColumn(ResourceColumnAction):
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
-        yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
-        if not yaml_column:
-            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+        if self.column_index >= len(yaml_columns):
+            msg = f"Column index {self.column_index} out of range in {self.resource_type} {self.resource_name}"
             raise PumpkinError(msg)
+
+        yaml_column = yaml_columns[self.column_index]
+
+        # Verify column name matches (case-insensitive) to catch bugs
+        if yaml_column["name"].upper() != self.column_name.upper():
+            msg = f"Column name mismatch at index {self.column_index}: expected {self.column_name}, found {yaml_column['name']}"
+            raise PumpkinError(msg)
+
+        # Update name only if different (to preserve ruamel comments)
+        if yaml_column["name"] != self.column_name:
+            yaml_column["name"] = self.column_name
+
+        # Update quote attribute - set if True, remove if False
+        if self.column_quote:
+            yaml_column["quote"] = True
+        else:
+            yaml_column.pop("quote", None)
 
         yaml_column["data_type"] = self.column_type
 
 
 @dataclass(frozen=True)
 class DeleteResourceColumn(ResourceColumnAction):
-    column_name: str
+    column_index: int
 
     def describe(self) -> str:
-        return f"Delete column {self.resource_type} {self.resource_name} {self.column_name} at {self.path}"
+        return f"Delete column {self.resource_type} {self.resource_name} at index {self.column_index} at {self.path}"
 
     def execute(self, files: dict[Path, dict]):
         yaml_columns = self._get_or_create_columns(files)
-        yaml_column = next((c for c in yaml_columns if c["name"] == self.column_name), None)
-        if not yaml_column:
-            msg = f"Column {self.column_name} not found in {self.resource_type} {self.resource_type}"
+        if self.column_index >= len(yaml_columns):
+            msg = f"Column index {self.column_index} out of range in {self.resource_type} {self.resource_name}"
             raise PumpkinError(msg)
 
-        yaml_columns.remove(yaml_column)
+        del yaml_columns[self.column_index]
 
 
 @dataclass(frozen=True)
