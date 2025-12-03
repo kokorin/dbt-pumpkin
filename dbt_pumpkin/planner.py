@@ -216,7 +216,7 @@ class SynchronizationPlanner(ActionPlanner):
         raise UnexpectedValueError(CaseFolding, self._case_folding)
 
     def _column_type(self, column: TableColumn, config: ResourceConfig) -> str:
-        if column.is_numeric and config.numeric_precision_and_scale or column.is_string and config.string_length:
+        if (column.is_numeric and config.numeric_precision_and_scale) or (column.is_string and config.string_length):
             return column.data_type
 
         return column.dtype

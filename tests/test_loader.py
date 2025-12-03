@@ -627,8 +627,8 @@ def test_overridden_resources(loader_overridden_resources):
         ResourceType.MODEL: {ResourceID("model.my_pumpkin.stg_customers")},
         ResourceType.SNAPSHOT: {ResourceID("snapshot.my_pumpkin.customers_snapshot")},
     }
-    assert [] == loader_overridden_resources.select_raw_resources()
-    assert [] == loader_overridden_resources.select_resources()
+    assert loader_overridden_resources.select_raw_resources() == []
+    assert loader_overridden_resources.select_resources() == []
 
 
 def test_selected_resources_total_count(loader_all):
@@ -693,7 +693,7 @@ def test_selected_resource_tables(loader_all):
 
 
 def test_selected_resource_tables_no_actual_tables(loader_configured_paths):
-    assert [] == loader_configured_paths.lookup_tables()
+    assert loader_configured_paths.lookup_tables() == []
 
 
 def test_detect_yaml_format_none():

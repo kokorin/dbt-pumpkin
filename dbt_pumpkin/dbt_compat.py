@@ -52,7 +52,7 @@ def _get_dbt_patches() -> Sequence[MonkeyPatch]:
     ###
     # Patches DBT 1.5 - 1.9 EventManager to not add DBT internal loggers
     ###
-    def event_manager_add_logger(self, *args) -> None:  # noqa: ARG001
+    def event_manager_add_logger(_self, *_args) -> None:
         pass
 
     event_manager_obj = None

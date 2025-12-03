@@ -122,11 +122,11 @@ def actual_yaml_resources() -> [list]:
 
 
 def test_bootstrap_no_resources(no_resources):
-    assert [] == BootstrapPlanner(no_resources).plan().actions
+    assert BootstrapPlanner(no_resources).plan().actions == []
 
 
 def test_bootstrap_no_yaml_path(no_yaml_path_resources):
-    assert [] == BootstrapPlanner(no_yaml_path_resources).plan().actions
+    assert BootstrapPlanner(no_yaml_path_resources).plan().actions == []
 
 
 def test_bootstrap_yaml_per_resource(separate_yaml_resources):
@@ -150,11 +150,11 @@ def test_bootstrap_yaml_actual_paths(actual_yaml_resources):
 
 
 def test_relocation_no_resources(no_resources):
-    assert [] == RelocationPlanner(no_resources).plan().actions
+    assert RelocationPlanner(no_resources).plan().actions == []
 
 
 def test_relocation_no_yaml_path(no_yaml_path_resources):
-    assert [] == RelocationPlanner(no_yaml_path_resources).plan().actions
+    assert RelocationPlanner(no_yaml_path_resources).plan().actions == []
 
 
 def test_relocation_yaml_per_resource(separate_yaml_resources):
@@ -181,12 +181,12 @@ def test_relocation_yaml_per_resource(separate_yaml_resources):
 
 
 def test_relocation_yaml_actual_paths(actual_yaml_resources):
-    assert [] == RelocationPlanner(actual_yaml_resources).plan().actions
+    assert RelocationPlanner(actual_yaml_resources).plan().actions == []
 
 
 def test_synchronization_no_resources():
-    assert [] == SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions
-    assert [] == SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions
+    assert SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions == []
+    assert SynchronizationPlanner([], [], CaseFolding.UPPER).plan().actions == []
 
 
 def test_synchronization_only_add():
