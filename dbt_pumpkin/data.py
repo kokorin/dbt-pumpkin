@@ -96,10 +96,6 @@ class ResourceConfig:
 class ResourceID:
     unique_id: str
 
-    @property
-    def name(self) -> str:
-        return self.unique_id.split(".")[-1]
-
     def __str__(self):
         return self.unique_id
 
@@ -125,6 +121,7 @@ class Resource:
     yaml_path: Path | None
     columns: list[ResourceColumn]
     config: ResourceConfig | None
+    version: str | float | None
 
     def __post_init__(self):
         # Validate invariants

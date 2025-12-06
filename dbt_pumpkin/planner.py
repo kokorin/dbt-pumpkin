@@ -299,6 +299,7 @@ class SynchronizationPlanner(ActionPlanner):
                             resource_name=resource.name,
                             path=resource.yaml_path,
                             source_name=resource.source_name,
+                            version=resource.version,
                             column_index=idx,
                         )
                     )
@@ -329,6 +330,7 @@ class SynchronizationPlanner(ActionPlanner):
                         resource_name=resource.name,
                         path=resource.yaml_path,
                         source_name=resource.source_name,
+                        version=resource.version,
                         column_index=idx,
                         column_name=table_column.name,
                         column_quote=column_quote,
@@ -355,6 +357,7 @@ class SynchronizationPlanner(ActionPlanner):
                         resource_name=resource.name,
                         path=resource.yaml_path,
                         source_name=resource.source_name,
+                        version=resource.version,
                         column_name=table_column.name,
                         column_quote=column_quote,
                         column_type=column_data_type,
@@ -381,6 +384,7 @@ class SynchronizationPlanner(ActionPlanner):
                     resource_name=resource.name,
                     path=resource.yaml_path,
                     source_name=resource.source_name,
+                    version=resource.version,
                     columns_order=table_column_names,
                 )
             )

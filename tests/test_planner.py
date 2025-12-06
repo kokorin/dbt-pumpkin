@@ -38,6 +38,7 @@ def resources_with_config(source_config: ResourceConfig, non_source_config: Reso
             yaml_path=Path("models/staging/_sources.yml"),
             columns=[],
             config=source_config,
+            version=None,
         ),
         Resource(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
@@ -51,6 +52,7 @@ def resources_with_config(source_config: ResourceConfig, non_source_config: Reso
             yaml_path=Path("models/staging/_schema.yml"),
             columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=non_source_config,
+            version=None,
         ),
         Resource(
             unique_id=ResourceID("model.my_pumpkin.stg_orders"),
@@ -64,6 +66,7 @@ def resources_with_config(source_config: ResourceConfig, non_source_config: Reso
             yaml_path=None,
             columns=[ResourceColumn(name="id", quote=False, data_type=None, description="")],
             config=non_source_config,
+            version=None,
         ),
     ]
 
@@ -206,6 +209,7 @@ def test_synchronization_only_add():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -224,6 +228,7 @@ def test_synchronization_only_add():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="NAME",
             column_quote=False,
             column_type="VARCHAR",
@@ -248,6 +253,7 @@ def test_synchronization_add_numeric_precision_and_scale():
             numeric_precision_and_scale=True,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -266,6 +272,7 @@ def test_synchronization_add_numeric_precision_and_scale():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="ID",
             column_quote=False,
             column_type="NUMBER(38,0)",
@@ -275,6 +282,7 @@ def test_synchronization_add_numeric_precision_and_scale():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="NAME",
             column_quote=False,
             column_type="VARCHAR",
@@ -299,6 +307,7 @@ def test_synchronization_add_string_length():
             numeric_precision_and_scale=False,
             string_length=True,
         ),
+        version=None,
     )
 
     table = Table(
@@ -317,6 +326,7 @@ def test_synchronization_add_string_length():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="ID",
             column_quote=False,
             column_type="NUMBER",
@@ -326,6 +336,7 @@ def test_synchronization_add_string_length():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="NAME",
             column_quote=False,
             column_type="character varying(256)",
@@ -353,6 +364,7 @@ def test_synchronization_only_update():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -371,6 +383,7 @@ def test_synchronization_only_update():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=0,
             column_name="ID",
             column_quote=False,
@@ -399,6 +412,7 @@ def test_synchronization_no_update_when_datatypes_match_ignorecase():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -434,6 +448,7 @@ def test_synchronization_update_numeric_precision_and_scale():
             numeric_precision_and_scale=True,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -452,6 +467,7 @@ def test_synchronization_update_numeric_precision_and_scale():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=0,
             column_name="ID",
             column_quote=False,
@@ -480,6 +496,7 @@ def test_synchronization_update_string_length():
             numeric_precision_and_scale=False,
             string_length=True,
         ),
+        version=None,
     )
 
     table = Table(
@@ -498,6 +515,7 @@ def test_synchronization_update_string_length():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
             column_name="NAME",
             column_quote=False,
@@ -527,6 +545,7 @@ def test_synchronization_only_delete():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -545,6 +564,7 @@ def test_synchronization_only_delete():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
         ),
     ]
@@ -571,6 +591,7 @@ def test_synchronization_all_actions():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -598,6 +619,7 @@ def test_synchronization_all_actions():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
         ),
         UpdateResourceColumn(
@@ -605,6 +627,7 @@ def test_synchronization_all_actions():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=0,
             column_name="ID",
             column_quote=False,
@@ -615,6 +638,7 @@ def test_synchronization_all_actions():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
             column_name="NAME",
             column_quote=False,
@@ -625,6 +649,7 @@ def test_synchronization_all_actions():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="BIRTH_DATE",
             column_quote=False,
             column_type="DATE",
@@ -634,6 +659,7 @@ def test_synchronization_all_actions():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             columns_order=["ID", "BIRTH_DATE", "NAME"],
         ),
     ]
@@ -657,6 +683,7 @@ def test_synchronization_with_upper_case_folding():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -679,6 +706,7 @@ def test_synchronization_with_upper_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="ID",
         column_quote=False,  # Standard uppercase, no quoting
         column_type="INTEGER",
@@ -688,6 +716,7 @@ def test_synchronization_with_upper_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="CustomerId",
         column_quote=True,  # Mixed case, needs quoting
         column_type="VARCHAR",
@@ -697,6 +726,7 @@ def test_synchronization_with_upper_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="email",
         column_quote=True,  # Lowercase, needs quoting
         column_type="VARCHAR",
@@ -721,6 +751,7 @@ def test_synchronization_with_lower_case_folding():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -743,6 +774,7 @@ def test_synchronization_with_lower_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="id",
         column_quote=False,  # Standard lowercase, no quoting
         column_type="INTEGER",
@@ -752,6 +784,7 @@ def test_synchronization_with_lower_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="CustomerId",
         column_quote=True,  # Mixed case, needs quoting
         column_type="VARCHAR",
@@ -761,6 +794,7 @@ def test_synchronization_with_lower_case_folding():
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="EMAIL",
         column_quote=True,  # Uppercase, needs quoting
         column_type="VARCHAR",
@@ -785,6 +819,7 @@ def test_synchronization_special_characters_always_quoted():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -804,6 +839,7 @@ def test_synchronization_special_characters_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="FIRST NAME",
             column_quote=True,  # Space in name
             column_type="VARCHAR",
@@ -813,6 +849,7 @@ def test_synchronization_special_characters_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="USER-ID",
             column_quote=True,  # Hyphen in name
             column_type="VARCHAR",
@@ -838,6 +875,7 @@ def test_synchronization_reserved_words_always_quoted():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -861,6 +899,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="ORDER",
             column_quote=True,  # Reserved word
             column_type="INTEGER",
@@ -870,6 +909,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="user",
             column_quote=True,  # Reserved word (case-insensitive)
             column_type="VARCHAR",
@@ -879,6 +919,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="Select",
             column_quote=True,  # Reserved word (case-insensitive)
             column_type="VARCHAR",
@@ -888,6 +929,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="Group",
             column_quote=True,  # Reserved word
             column_type="VARCHAR",
@@ -897,6 +939,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="table",
             column_quote=True,  # Reserved word
             column_type="VARCHAR",
@@ -906,6 +949,7 @@ def test_synchronization_reserved_words_always_quoted():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="DESCRIBE",
             column_quote=True,  # Reserved word
             column_type="VARCHAR",
@@ -935,6 +979,7 @@ def test_synchronization_update_adds_quote_for_reserved_word():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -951,6 +996,7 @@ def test_synchronization_update_adds_quote_for_reserved_word():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=0,
             column_name="ORDER",
             column_quote=True,  # Reserved word needs quoting
@@ -986,6 +1032,7 @@ def test_synchronization_update_adds_quote_for_mixed_case():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -1006,6 +1053,7 @@ def test_synchronization_update_adds_quote_for_mixed_case():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=0,
             column_name="CustomerId",
             column_quote=True,  # Mixed case needs quoting with UPPER folding
@@ -1032,6 +1080,7 @@ def test_synchronization_unknown_case_folding():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -1052,6 +1101,7 @@ def test_synchronization_unknown_case_folding():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="ID",
             column_quote=True,  # UNKNOWN - quoted for safety
             column_type="INTEGER",
@@ -1061,6 +1111,7 @@ def test_synchronization_unknown_case_folding():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="CustomerId",
             column_quote=True,  # UNKNOWN - quoted for safety
             column_type="VARCHAR",
@@ -1090,6 +1141,7 @@ def test_synchronization_ambiguous_columns_in_resource():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -1112,6 +1164,7 @@ def test_synchronization_ambiguous_columns_in_resource():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
             column_name="Name",
             column_quote=True,
@@ -1122,6 +1175,7 @@ def test_synchronization_ambiguous_columns_in_resource():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=2,
             column_name="NAME",
             column_quote=True,
@@ -1151,6 +1205,7 @@ def test_synchronization_ambiguous_columns_in_table():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -1170,6 +1225,7 @@ def test_synchronization_ambiguous_columns_in_table():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_name="NAME",
             column_quote=True,
             column_type="VARCHAR",
@@ -1199,6 +1255,7 @@ def test_synchronization_ambiguous_columns_mismatch():
             numeric_precision_and_scale=False,
             string_length=False,
         ),
+        version=None,
     )
 
     table = Table(
@@ -1221,6 +1278,7 @@ def test_synchronization_ambiguous_columns_mismatch():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
         ),
         UpdateResourceColumn(
@@ -1228,9 +1286,57 @@ def test_synchronization_ambiguous_columns_mismatch():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             column_index=1,
             column_name="first_name",
             column_quote=False,
             column_type="VARCHAR",
         ),
     ]
+
+
+def test_synchronization_versioned_model():
+    """Test that synchronization planner generates actions with version for versioned models."""
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.customers.v2"),
+        name="customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="customers_v2",
+        type=ResourceType.MODEL,
+        path=Path("models/customers_2.sql"),
+        yaml_path=Path("models/_schema.yml"),
+        columns=[
+            ResourceColumn(name="ID", quote=False, data_type="INTEGER", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        version=2,
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.customers.v2"),
+        columns=[
+            TableColumn(name="ID", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    actions = SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions
+
+    # Should generate AddResourceColumn with version=2
+    assert len(actions) == 1
+    assert actions[0] == AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/_schema.yml"),
+        version=2,
+        column_name="NAME",
+        column_quote=False,
+        column_type="VARCHAR",
+    )
