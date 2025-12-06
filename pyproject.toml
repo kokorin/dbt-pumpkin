@@ -52,8 +52,7 @@ EXPECTED_DBT_VERSION = "1.9"
 DBT_PROJECT_DIR = ".dbt_project"
 DBT_PROFILES_DIR = ".dbt_project"
 
-[tool.hatch.envs.test]
-python = "3.11"
+[tool.hatch.envs.hatch-test]
 dependencies = [
   "pytest",
   "dbt-core~={matrix:dbt}.0",
@@ -61,39 +60,17 @@ dependencies = [
 ]
 installer = "uv"
 
-[tool.hatch.envs.test.env-vars]
-EXPECTED_PYTHON_VERSION = "{matrix:python}"
-EXPECTED_DBT_VERSION = "{matrix:dbt}"
-DBT_PROJECT_DIR = ".dbt_project"
-DBT_PROFILES_DIR = ".dbt_project"
-
-[[tool.hatch.envs.test.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12"]
-dbt = ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"]
-
-[tool.hatch.envs.test.overrides]
-matrix.dbt.set-dependencies = [
-  {value = "pytest"},
-  {value = "dbt-core~={matrix:dbt}.0"},
-  {value = "dbt-duckdb~=1.9.0", if = ["1.9", "1.10"]},
-  {value = "dbt-duckdb~={matrix:dbt}.0", if = ["1.5", "1.6", "1.7", "1.8"]}
-]
-
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.9", "3.10"]
+python = ["3.10"]
 dbt = ["1.7", "1.8"]
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.11", "3.12"]
-dbt = ["1.7", "1.8", "1.9", "1.10"]
+python = ["3.10", "3.11", "3.12"]
+dbt = ["1.9", "1.10"]
 
-[tool.hatch.envs.hatch-test.overrides]
-matrix.dbt.dependencies = [
-  {value = "pytest"},
-  {value = "dbt-core~={matrix:dbt}.0"},
-  {value = "dbt-duckdb~=1.9.0", if = ["1.9", "1.10"]},
-  {value = "dbt-duckdb~={matrix:dbt}.0", if = ["1.5", "1.6", "1.7", "1.8"]}
-]
+[tool.hatch.envs.hatch-test.env-vars]
+EXPECTED_PYTHON_VERSION = "{matrix:python}"
+EXPECTED_DBT_VERSION = "{matrix:dbt}"
 
 [tool.hatch.envs.hatch-test.scripts]
 # To change cov-report script we have to re-define all other scripts too
@@ -101,10 +78,6 @@ run = "pytest{env:HATCH_TEST_ARGS:} {args}"  # default
 run-cov = "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}"  # default
 cov-combine = "coverage combine"  # default
 cov-report = ["coverage report", "coverage xml"]  # xml added
-
-[tool.hatch.envs.hatch-test.env-vars]
-EXPECTED_PYTHON_VERSION = "{matrix:python}"
-EXPECTED_DBT_VERSION = "{matrix:dbt}"
 
 [tool.coverage.report]
 include = ["dbt_pumpkin/**"]
