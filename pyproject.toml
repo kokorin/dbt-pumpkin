@@ -55,6 +55,7 @@ DBT_PROFILES_DIR = ".dbt_project"
 [tool.hatch.envs.hatch-test]
 dependencies = [
   "pytest",
+  "pytest-cov",
   "dbt-core~={matrix:dbt}.0",
   "dbt-duckdb~={matrix:dbt}.0"
 ]
