@@ -50,13 +50,13 @@ def _get_dbt_patches() -> Sequence[MonkeyPatch]:
         yield MonkeyPatch(list_task_obj, "output_results", list_task_output_results)
 
     ###
-    # Patches DBT 1.5 - 1.9 EventManager to not add DBT internal loggers
+    # Patches DBT 1.5 - 1.10 EventManager to not add DBT internal loggers
     ###
     def event_manager_add_logger(_self, *_args) -> None:
         pass
 
     event_manager_obj = None
-    if dbt_version in {"1.8", "1.9"}:
+    if dbt_version in {"1.8", "1.9", "1.10"}:
         import dbt_common.events.event_manager
 
         event_manager_obj = dbt_common.events.event_manager.EventManager
