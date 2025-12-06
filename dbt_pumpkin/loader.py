@@ -180,6 +180,9 @@ class ResourceLoader:
                 string_length=pumpkin_types.get("string-length", False),
             )
 
+            # Extract version for versioned models
+            version = getattr(raw_resource, "version", None)
+
             logger.info("Selected %s", resource_id)
 
             results.append(
@@ -198,6 +201,7 @@ class ResourceLoader:
                         for c in raw_resource.columns.values()
                     ],
                     config=config,
+                    version=version,
                 )
             )
 

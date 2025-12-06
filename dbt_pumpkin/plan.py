@@ -117,6 +117,7 @@ class BootstrapResource(ResourceAction):
 class ResourceColumnAction(ResourceAction, ABC):
     source_name: str | None
     path: Path
+    version: str | float | None
 
     def __post_init__(self):
         if self.resource_type == ResourceType.SOURCE and not self.source_name:
@@ -150,7 +151,17 @@ class ResourceColumnAction(ResourceAction, ABC):
             msg = f"Resource {self.resource_name} not found in {self.path}"
             raise PumpkinError(msg)
 
-        return yaml_resource.setdefault("columns", [])
+        columns_parent = yaml_resource
+        # For versioned models, navigate to the specific version
+        if self.version is not None:
+            yaml_versions = yaml_resource.setdefault("versions", [])
+            yaml_version = next((v for v in yaml_versions if v.get("v") == self.version), None)
+            if not yaml_version:
+                msg = f"Version {self.version} not found for {self.resource_name} in {self.path}"
+                raise PumpkinError(msg)
+            columns_parent = yaml_version
+
+        return columns_parent.setdefault("columns", [])
 
 
 @dataclass(frozen=True)

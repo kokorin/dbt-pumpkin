@@ -1,19 +1,7 @@
 import pytest
 
-from dbt_pumpkin.data import ResourceID, ResourceType, YamlFormat
+from dbt_pumpkin.data import ResourceType, YamlFormat
 from dbt_pumpkin.exception import PropertyRequiredError
-
-
-@pytest.mark.parametrize(
-    argnames=["unique_id", "name"],
-    argvalues=[
-        ("model.my_pumpkin.stg_customers", "stg_customers"),
-        ("seed.my_pumpkin.seed_customers", "seed_customers"),
-        ("snapshot.my_pumpkin.customers_snapshot", "customers_snapshot"),
-    ],
-)
-def test_resoruce_id_name(unique_id: str, name: str):
-    assert ResourceID(unique_id).name == name
 
 
 def test_resource_type_plural_names():

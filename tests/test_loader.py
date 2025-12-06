@@ -484,6 +484,7 @@ def test_selected_resources(loader_all):
                 numeric_precision_and_scale=False,
                 string_length=False,
             ),
+            version=None,
         ),
         Resource(
             unique_id=ResourceID("model.my_pumpkin.stg_customers"),
@@ -501,6 +502,7 @@ def test_selected_resources(loader_all):
                 numeric_precision_and_scale=False,
                 string_length=False,
             ),
+            version=None,
         ),
         Resource(
             unique_id=ResourceID("seed.my_pumpkin.seed_customers"),
@@ -518,6 +520,7 @@ def test_selected_resources(loader_all):
                 numeric_precision_and_scale=False,
                 string_length=False,
             ),
+            version=None,
         ),
         Resource(
             unique_id=ResourceID("snapshot.my_pumpkin.customers_snapshot"),
@@ -535,6 +538,7 @@ def test_selected_resources(loader_all):
                 numeric_precision_and_scale=False,
                 string_length=False,
             ),
+            version=None,
         ),
     ].sort(key=sort_order)
 
@@ -557,6 +561,7 @@ def test_selected_resources_with_exact_types(loader_with_exact_types):
                 numeric_precision_and_scale=True,
                 string_length=True,
             ),
+            version=None,
         ),
     ]
 
@@ -804,3 +809,54 @@ def test_detect_case_folding(loader_all):
     # For DuckDB (used in tests), we expect PRESERVE case folding
     # DuckDB preserves the case of unquoted identifiers
     assert case_folding == CaseFolding.PRESERVE
+
+
+def test_versioned_model():
+    """Test that versioned models are loaded with version attribute."""
+    loader = mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: "0.1.0"
+                    profile: test_pumpkin
+                """,
+                "models/_schema.yml": """\
+                    version: 2
+                    models:
+                      - name: customers
+                        latest_version: 2
+                        versions:
+                          - v: 1
+                            columns:
+                              - name: id
+                          - v: 2
+                            columns:
+                              - name: id
+                              - name: name
+                """,
+                "models/customers_v1.sql": "select 1 as id",
+                "models/customers_v2.sql": "select 1 as id, 'Jon' as name",
+            },
+        )
+    )
+
+    resources = loader.select_resources()
+
+    # Should have 2 versioned model resources
+    assert len(resources) == 2
+
+    # Sort by version for consistent ordering
+    resources.sort(key=lambda r: r.version or 0)
+
+    # Check version 1
+    v1 = resources[0]
+    assert v1.name == "customers"
+    assert v1.version == 1
+    assert v1.unique_id.unique_id == "model.test_pumpkin.customers.v1"
+
+    # Check version 2
+    v2 = resources[1]
+    assert v2.name == "customers"
+    assert v2.version == 2
+    assert v2.unique_id.unique_id == "model.test_pumpkin.customers.v2"

@@ -197,6 +197,7 @@ def test_add_resource_column(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="address",
         column_quote=False,
         column_type="varchar",
@@ -238,6 +239,7 @@ def test_add_resource_column_quoted(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="address",
         column_quote=True,
         column_type="varchar",
@@ -279,6 +281,7 @@ def test_add_resource_column_error(files):
         resource_name="not_defined",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_name="any",
         column_quote=False,
         column_type="any",
@@ -294,6 +297,7 @@ def test_add_resource_column_resource_not_found_error(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/__unknown__.yml"),
+        version=None,
         column_name="any",
         column_quote=False,
         column_type="any",
@@ -309,6 +313,7 @@ def test_add_source_column(files):
         resource_name="customers",
         source_name="ingested",
         path=Path("models/staging/_sources.yml"),
+        version=None,
         column_name="id",
         column_quote=False,
         column_type="int",
@@ -342,6 +347,7 @@ def test_add_source_column_unknown_source_name(files):
         resource_name="customers",
         source_name="unknown",
         path=Path("models/staging/_sources.yml"),
+        version=None,
         column_name="id",
         column_quote=False,
         column_type="int",
@@ -357,6 +363,7 @@ def test_add_source_column_unknown_name(files):
         resource_name="unknown",
         source_name="ingested",
         path=Path("models/staging/_sources.yml"),
+        version=None,
         column_name="id",
         column_quote=False,
         column_type="int",
@@ -372,6 +379,7 @@ def test_update_resource_column(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="id",
         column_quote=False,
@@ -414,6 +422,7 @@ def test_update_resource_column_renames(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="ID",  # Different case
         column_quote=False,
@@ -455,6 +464,7 @@ def test_update_resource_column_no_resource_error(files):
         resource_name="unknown",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="id",
         column_quote=False,
@@ -471,6 +481,7 @@ def test_update_resource_column_index_out_of_range_error(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=99,
         column_name="id",
         column_quote=False,
@@ -488,6 +499,7 @@ def test_update_resource_column_name_mismatch_error(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="wrong_name",  # Doesn't match "id" at index 0
         column_quote=False,
@@ -505,6 +517,7 @@ def test_update_resource_column_adds_quote(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="id",
         column_quote=True,
@@ -550,6 +563,7 @@ def test_update_resource_column_removes_quote(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
         column_name="id",
         column_quote=False,
@@ -591,6 +605,7 @@ def test_delete_resource_column(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=1,  # Delete "name" at index 1
     )
 
@@ -628,6 +643,7 @@ def test_delete_resource_column_no_resource_error(files):
         resource_name="unknown",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=0,
     )
 
@@ -641,6 +657,7 @@ def test_delete_resource_column_index_out_of_range_error(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         column_index=99,
     )
 
@@ -654,6 +671,7 @@ def test_reorder_resource_columns(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         columns_order=["name", "id"],
     )
 
@@ -693,6 +711,7 @@ def test_reorder_resource_columns_not_unique_columns_error():
             resource_name="stg_customers",
             source_name=None,
             path=Path("models/staging/_schema.yml"),
+            version=None,
             columns_order=["name", "id", "id"],
         )
 
@@ -703,8 +722,140 @@ def test_reorder_resource_columns_unknown_column_error(files):
         resource_name="stg_customers",
         source_name=None,
         path=Path("models/staging/_schema.yml"),
+        version=None,
         columns_order=["name", "id", "unknown"],
     )
 
     with pytest.raises(PumpkinError):
         action.execute(files)
+
+
+# === Versioned model tests ===
+
+
+@pytest.fixture
+def versioned_files() -> dict[Path, dict]:
+    return {
+        Path("models/staging/_schema.yml"): {
+            "version": 2,
+            "models": [
+                {
+                    "name": "customers",
+                    "latest_version": 2,
+                    "versions": [
+                        {
+                            "v": 1,
+                            "columns": [
+                                {"name": "id", "data_type": "int"},
+                            ],
+                        },
+                        {
+                            "v": 2,
+                            "columns": [
+                                {"name": "id", "data_type": "int"},
+                                {"name": "name", "data_type": "varchar"},
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    }
+
+
+def test_add_column_to_versioned_model(versioned_files):
+    action = AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        version=2,
+        column_name="email",
+        column_quote=False,
+        column_type="varchar",
+    )
+
+    expected = copy.deepcopy(versioned_files)
+    expected[Path("models/staging/_schema.yml")]["models"][0]["versions"][1]["columns"].append(
+        {"name": "email", "data_type": "varchar"}
+    )
+
+    action.execute(versioned_files)
+
+    assert versioned_files == expected
+
+
+def test_update_column_in_versioned_model(versioned_files):
+    action = UpdateResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        version=1,
+        column_index=0,
+        column_name="id",
+        column_quote=False,
+        column_type="bigint",
+    )
+
+    expected = copy.deepcopy(versioned_files)
+    expected[Path("models/staging/_schema.yml")]["models"][0]["versions"][0]["columns"][0]["data_type"] = "bigint"
+
+    action.execute(versioned_files)
+
+    assert versioned_files == expected
+
+
+def test_delete_column_from_versioned_model(versioned_files):
+    action = DeleteResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        version=2,
+        column_index=1,  # Delete "name" column
+    )
+
+    expected = copy.deepcopy(versioned_files)
+    del expected[Path("models/staging/_schema.yml")]["models"][0]["versions"][1]["columns"][1]
+
+    action.execute(versioned_files)
+
+    assert versioned_files == expected
+
+
+def test_reorder_columns_in_versioned_model(versioned_files):
+    action = ReorderResourceColumns(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        version=2,
+        columns_order=["name", "id"],
+    )
+
+    expected = copy.deepcopy(versioned_files)
+    expected[Path("models/staging/_schema.yml")]["models"][0]["versions"][1]["columns"] = [
+        {"name": "name", "data_type": "varchar"},
+        {"name": "id", "data_type": "int"},
+    ]
+
+    action.execute(versioned_files)
+
+    assert versioned_files == expected
+
+
+def test_versioned_model_version_not_found_error(versioned_files):
+    action = AddResourceColumn(
+        resource_type=ResourceType.MODEL,
+        resource_name="customers",
+        source_name=None,
+        path=Path("models/staging/_schema.yml"),
+        version=99,  # Non-existent version
+        column_name="email",
+        column_quote=False,
+        column_type="varchar",
+    )
+
+    with pytest.raises(PumpkinError):
+        action.execute(versioned_files)
