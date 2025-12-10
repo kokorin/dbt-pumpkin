@@ -7,6 +7,31 @@ from dbt_pumpkin.params import ProjectParams, ResourceParams
 from dbt_pumpkin.pumpkin import Pumpkin
 
 
+# Kindly borrowed from Click documentation
+# https://click.palletsprojects.com/en/stable/extending-click/#command-aliases
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_name):
+        rv = super().get_command(ctx, cmd_name)
+
+        if rv is not None:
+            return rv
+
+        matches = [x for x in self.list_commands(ctx) if x.startswith(cmd_name)]
+
+        if not matches:
+            return None
+
+        if len(matches) == 1:
+            return click.Group.get_command(self, ctx, matches[0])
+
+        ctx.fail(f"Too many matches: {', '.join(sorted(matches))}")  # noqa: RET503
+
+    def resolve_command(self, ctx, args):
+        # always return the full command name
+        _, cmd, args = super().resolve_command(ctx, args)
+        return cmd.name, cmd, args
+
+
 class P:
     project_dir = click.option("--project-dir")
     profiles_dir = click.option("--profiles-dir")
@@ -25,7 +50,7 @@ def set_up_logging(debug):
     suppress_dbt_cli_output()
 
 
-@click.group
+@click.group(cls=AliasedGroup)
 @click.version_option()
 def cli():
     pass
