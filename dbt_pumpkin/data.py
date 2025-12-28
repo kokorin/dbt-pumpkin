@@ -103,7 +103,7 @@ class ResourceID:
 @dataclass(frozen=True)
 class ResourceColumn:
     name: str
-    quote: bool
+    quote: bool | None
     data_type: str | None
     description: str | None
 
