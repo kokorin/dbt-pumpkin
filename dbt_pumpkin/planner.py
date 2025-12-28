@@ -317,7 +317,8 @@ class SynchronizationPlanner(ActionPlanner):
 
             # Check if update is needed (name, quote, or data_type changed)
             name_changed = resource_column.name != table_column.name
-            quote_changed = resource_column.quote != column_quote
+            # Treat None as False (unspecified quote means don't quote)
+            quote_changed = (resource_column.quote or False) != column_quote
             type_changed = (
                 resource_column.data_type is None or column_data_type.lower() != resource_column.data_type.lower()
             )
