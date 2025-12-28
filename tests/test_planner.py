@@ -1340,3 +1340,102 @@ def test_synchronization_versioned_model():
         column_quote=False,
         column_type="VARCHAR",
     )
+
+
+def test_synchronization_no_false_positive_when_quote_is_none():
+    """Test that no update is generated when resource column has quote=None and column doesn't need quoting.
+
+    This tests the fix for false positive quote_changed detection.
+    When a column in YAML doesn't have explicit quote attribute, dbt returns None.
+    If the column doesn't require quoting, None should be treated as equivalent to False.
+    """
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            # quote=None simulates a column without explicit quote in YAML
+            ResourceColumn(name="ID", quote=None, data_type="INTEGER", description=""),
+            ResourceColumn(name="NAME", quote=None, data_type="VARCHAR", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        version=None,
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            # Standard uppercase columns - don't need quoting with UPPER folding
+            TableColumn(name="ID", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+            TableColumn(name="NAME", dtype="VARCHAR", data_type="VARCHAR", is_numeric=False, is_string=True),
+        ],
+    )
+
+    # With UPPER folding:
+    # - ID doesn't need quoting (uppercase matches folded)
+    # - NAME doesn't need quoting (uppercase matches folded)
+    # - resource columns have quote=None, which should be treated as quote=False
+    # - No updates should be generated since name, quote (None==False), and data_type all match
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == []
+
+
+def test_synchronization_update_when_quote_none_needs_quoting():
+    """Test that update IS generated when resource column has quote=None but column DOES need quoting.
+
+    When a column requires quoting (e.g., reserved word) and resource has quote=None,
+    an update should be generated to set quote=True.
+    """
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[
+            # quote=None but ORDER is a reserved word and needs quoting
+            ResourceColumn(name="ORDER", quote=None, data_type="INTEGER", description=""),
+        ],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=False,
+        ),
+        version=None,
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(name="ORDER", dtype="INTEGER", data_type="INTEGER", is_numeric=False, is_string=False),
+        ],
+    )
+
+    # ORDER is a reserved word, so it needs quoting
+    # resource has quote=None, table needs quote=True -> update required
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
+        UpdateResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            version=None,
+            column_index=0,
+            column_name="ORDER",
+            column_quote=True,
+            column_type="INTEGER",
+        ),
+    ]
