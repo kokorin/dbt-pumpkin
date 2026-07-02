@@ -12,7 +12,7 @@ repos:
         additional_dependencies:
           - maison>=1.4.0,<2.0.0
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-    rev: v2.13.0
+    rev: v2.16.0
     hooks:
       - id: pretty-format-toml
         args: [--autofix, --no-sort]
