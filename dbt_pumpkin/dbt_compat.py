@@ -5,18 +5,19 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from typing import Any
 
 
 @dataclass
 class MonkeyPatch:
     obj: object
     name: str
-    value: any
+    value: Any
 
 
 def _get_dbt_patches() -> Sequence[MonkeyPatch]:
     try:
-        from dbt.version import get_installed_version
+        from dbt.version import get_installed_version  # noqa: PLC0415
 
         dbt_version = get_installed_version().major + "." + get_installed_version().minor
     except ImportError:
@@ -28,15 +29,15 @@ def _get_dbt_patches() -> Sequence[MonkeyPatch]:
     list_task_obj = None
 
     if dbt_version == "1.8":
-        import dbt.task.list
-        from dbt_common.events.base_types import EventLevel
-        from dbt_common.events.functions import fire_event
+        import dbt.task.list  # noqa: PLC0415
+        from dbt_common.events.base_types import EventLevel  # noqa: PLC0415
+        from dbt_common.events.functions import fire_event  # noqa: PLC0415
 
         list_task_obj = dbt.task.list.ListTask
     elif dbt_version in {"1.5", "1.6", "1.7"}:
-        import dbt.task.list
-        from dbt.events.base_types import EventLevel
-        from dbt.events.functions import fire_event
+        import dbt.task.list  # noqa: PLC0415
+        from dbt.events.base_types import EventLevel  # noqa: PLC0415
+        from dbt.events.functions import fire_event  # noqa: PLC0415
 
         list_task_obj = dbt.task.list.ListTask
 
@@ -57,11 +58,11 @@ def _get_dbt_patches() -> Sequence[MonkeyPatch]:
 
     event_manager_obj = None
     if dbt_version in {"1.8", "1.9", "1.10"}:
-        import dbt_common.events.event_manager
+        import dbt_common.events.event_manager  # noqa: PLC0415
 
         event_manager_obj = dbt_common.events.event_manager.EventManager
     elif dbt_version in {"1.5", "1.6", "1.7"}:
-        import dbt.events.eventmgr
+        import dbt.events.eventmgr  # noqa: PLC0415
 
         event_manager_obj = dbt.events.eventmgr.EventManager
 

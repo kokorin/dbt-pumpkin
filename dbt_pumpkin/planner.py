@@ -189,8 +189,6 @@ class SynchronizationPlanner(ActionPlanner):
         self._dont_quote_re = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
 
     def _quote(self, name: str) -> bool:
-        from dbt_pumpkin.data import CaseFolding
-
         # First check for special characters that always require quoting
         if self._dont_quote_re.match(name) is None:
             return True
