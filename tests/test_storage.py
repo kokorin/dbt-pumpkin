@@ -1,4 +1,3 @@
-import platform
 import textwrap
 from pathlib import Path
 
@@ -142,26 +141,7 @@ def test_roundtrip_preserve_comments(tmp_path: Path):
 
     actual = (tmp_path / "my_model.yml").read_text()
 
-    # Ruamel adds newlines after comments on Windows, but not on Ubuntu
-    # It should be fine as we don't re-write a file if there is nothing to change in it
-    if platform.system().lower() == "windows":
-        expected = textwrap.dedent("""\
-            version: 2
-            models:
-            # TODO rename it!
-
-            - name: my_model
-              description: my very first model
-              columns:
-              - name: id
-                data_type: short # or is it int actually?
-
-              - name: name
-        """)
-    else:
-        expected = content
-
-    assert expected == actual
+    assert content == actual
 
 
 def test_roundtrip_preserve_quotes(tmp_path: Path):
@@ -197,7 +177,7 @@ def test_save_yaml_deletes_if_content_is_none(tmp_path: Path):
         version: 2
         models:
             - name: my_model
-    """)
+        """)
     )
 
     storage = DiskStorage(tmp_path, yaml_format=None)
@@ -213,3 +193,35 @@ def test_save_yaml_does_nothing_if_content_is_none_no_file(tmp_path: Path):
     storage = DiskStorage(tmp_path, yaml_format=None)
     storage.save_yaml({Path("schema.yml"): None})
     assert not schema_file.exists()
+
+def test_roundtrip_preserves_utf8(tmp_path: Path):
+    assert_roundtrip(tmp_path, textwrap.dedent("""\
+        version: 2
+        models:
+        - name: "my_model"
+          description: "❌ Risky: Uses system-dependent locale encoding"
+        """))
+
+def test_roundtrip_preserves_multiline_comments(tmp_path: Path):
+    assert_roundtrip(tmp_path, textwrap.dedent("""\
+        version: 2
+        models:
+        # comment 1
+        # comment 2
+        - name: "my_model"
+        """))
+
+def assert_roundtrip(tmp_path: Path, content: str):
+    schema_file = Path("schema.yml")
+    schema_path = tmp_path / schema_file
+    schema_path.write_text(content, encoding="utf-8")
+
+    storage = DiskStorage(tmp_path, yaml_format=YamlFormat(preserve_quotes=True))
+    loaded_files = storage.load_yaml({schema_file})
+    schema_path.unlink()
+    assert not schema_path.exists()
+    storage.save_yaml(loaded_files)
+    assert schema_path.exists()
+
+    after = schema_path.read_text(encoding="utf-8")
+    assert after == content
