@@ -24,7 +24,8 @@ class AliasedGroup(click.Group):
         if len(matches) == 1:
             return click.Group.get_command(self, ctx, matches[0])
 
-        ctx.fail(f"Too many matches: {', '.join(sorted(matches))}")  # noqa: RET503
+        ctx.fail(f"Too many matches: {', '.join(sorted(matches))}")
+        return None  # Makes Ruff happy
 
     def resolve_command(self, ctx, args):
         # always return the full command name
