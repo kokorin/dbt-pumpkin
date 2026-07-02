@@ -4,7 +4,7 @@ import abc
 import logging
 import os
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from ruamel.yaml import YAML
 
@@ -22,7 +22,7 @@ class Storage(abc.ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save_yaml(self, files: dict[Path, Union[dict, None]]):
+    def save_yaml(self, files: dict[Path, dict | None]):
         raise NotImplementedError
 
 
@@ -55,7 +55,7 @@ class DiskStorage(Storage):
 
         return result
 
-    def save_yaml(self, files: dict[Path, Union[dict, None]]):
+    def save_yaml(self, files: dict[Path, dict | None]):
         for file, content in files.items():
             resolved_file = self._root_dir / file
 

@@ -194,22 +194,31 @@ def test_save_yaml_does_nothing_if_content_is_none_no_file(tmp_path: Path):
     storage.save_yaml({Path("schema.yml"): None})
     assert not schema_file.exists()
 
+
 def test_roundtrip_preserves_utf8(tmp_path: Path):
-    assert_roundtrip(tmp_path, textwrap.dedent("""\
+    assert_roundtrip(
+        tmp_path,
+        textwrap.dedent("""\
         version: 2
         models:
         - name: "my_model"
           description: "❌ Risky: Uses system-dependent locale encoding"
-        """))
+        """),
+    )
+
 
 def test_roundtrip_preserves_multiline_comments(tmp_path: Path):
-    assert_roundtrip(tmp_path, textwrap.dedent("""\
+    assert_roundtrip(
+        tmp_path,
+        textwrap.dedent("""\
         version: 2
         models:
         # comment 1
         # comment 2
         - name: "my_model"
-        """))
+        """),
+    )
+
 
 def assert_roundtrip(tmp_path: Path, content: str):
     schema_file = Path("schema.yml")
