@@ -90,6 +90,7 @@ class ResourceConfig:
     yaml_path_template: str | None
     numeric_precision_and_scale: bool
     string_length: bool
+    max_string_length: int | None = None
 
 
 @dataclass(frozen=True)

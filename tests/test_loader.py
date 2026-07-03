@@ -392,6 +392,27 @@ def loader_with_exact_types():
     )
 
 
+@pytest.fixture
+def loader_with_max_string_length():
+    return mock_loader(
+        mock_project(
+            files={
+                "dbt_project.yml": """\
+                    name: test_pumpkin
+                    version: 0.1.0
+                    profile: test_pumpkin
+                    models:
+                      test_pumpkin:
+                        +dbt-pumpkin-types:
+                          string-length: true
+                          max-string-length: 256
+                """,
+                "models/customers.sql": "select 1 as id",
+            },
+        )
+    )
+
+
 # TESTS
 
 
@@ -560,6 +581,30 @@ def test_selected_resources_with_exact_types(loader_with_exact_types):
                 yaml_path_template=None,
                 numeric_precision_and_scale=True,
                 string_length=True,
+            ),
+            version=None,
+        ),
+    ]
+
+
+def test_selected_resources_with_max_string_length(loader_with_max_string_length):
+    assert loader_with_max_string_length.select_resources() == [
+        Resource(
+            unique_id=ResourceID("model.test_pumpkin.customers"),
+            name="customers",
+            source_name=None,
+            database="dev",
+            schema="main",
+            identifier="customers",
+            type=ResourceType.MODEL,
+            path=Path("models/customers.sql"),
+            yaml_path=None,
+            columns=[],
+            config=ResourceConfig(
+                yaml_path_template=None,
+                numeric_precision_and_scale=False,
+                string_length=True,
+                max_string_length=256,
             ),
             version=None,
         ),

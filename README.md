@@ -169,6 +169,10 @@ sources:
 
 `dbt-pumpkin-types` controls if precision and scale are added to numeric types and if length is added to string types.
 
+- `numeric-precision-and-scale` — include precision and scale for numeric types (e.g. `NUMBER(38,0)`)
+- `string-length` — include length for string types (e.g. `character varying(256)`)
+- `max-string-length` — when used with `string-length: true`, caps the length at this value (e.g. `character varying(65535)` becomes `character varying(256)` if `max-string-length: 256`)
+
 #### Examples
 
 You can specify `dbt-pumpkin-types` for Sources, Seeds, Models and Snapshots.
