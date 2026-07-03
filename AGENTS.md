@@ -37,6 +37,10 @@ hatch test
 # Lint and format checks
 hatch check fmt
 hatch check code
+
+# Auto-fix lint and format issues
+hatch check fmt --fix
+hatch check code --fix
 ```
 
 ## Guidelines

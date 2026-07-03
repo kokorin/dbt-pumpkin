@@ -524,6 +524,74 @@ def test_synchronization_update_string_length():
     ]
 
 
+def test_synchronization_add_string_length_with_max():
+    resource = Resource(
+        unique_id=ResourceID("model.my_pumpkin.stg_customers"),
+        name="stg_customers",
+        source_name=None,
+        database="dev",
+        schema="main",
+        identifier="stg_customers",
+        type=ResourceType.MODEL,
+        path=Path("models/staging/stg_customers.sql"),
+        yaml_path=Path("models/staging/_schema.yml"),
+        columns=[],
+        config=ResourceConfig(
+            yaml_path_template=None,
+            numeric_precision_and_scale=False,
+            string_length=True,
+            max_string_length=256,
+        ),
+        version=None,
+    )
+
+    table = Table(
+        resource_id=ResourceID("model.my_pumpkin.stg_customers"),
+        columns=[
+            TableColumn(
+                name="NAME", dtype="VARCHAR", data_type="character varying(100)", is_numeric=False, is_string=True
+            ),
+            TableColumn(
+                name="BIO", dtype="TEXT", data_type="character varying(65535)", is_numeric=False, is_string=True
+            ),
+            TableColumn(name="CODE", dtype="VARCHAR", data_type="character varying", is_numeric=False, is_string=True),
+        ],
+    )
+
+    assert SynchronizationPlanner([resource], [table], CaseFolding.UPPER).plan().actions == [
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            version=None,
+            column_name="NAME",
+            column_quote=False,
+            column_type="character varying(100)",  # length 100 <= max 256, unchanged
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            version=None,
+            column_name="BIO",
+            column_quote=False,
+            column_type="character varying(256)",  # length 65535 > max 256, capped to 256
+        ),
+        AddResourceColumn(
+            resource_type=ResourceType.MODEL,
+            resource_name="stg_customers",
+            source_name=None,
+            path=Path("models/staging/_schema.yml"),
+            version=None,
+            column_name="CODE",
+            column_quote=False,
+            column_type="character varying",  # no parseable length, unchanged
+        ),
+    ]
+
+
 def test_synchronization_only_delete():
     resource = Resource(
         unique_id=ResourceID("model.my_pumpkin.stg_customers"),

@@ -214,9 +214,14 @@ class SynchronizationPlanner(ActionPlanner):
         raise UnexpectedValueError(CaseFolding, self._case_folding)
 
     def _column_type(self, column: TableColumn, config: ResourceConfig) -> str:
-        if (column.is_numeric and config.numeric_precision_and_scale) or (column.is_string and config.string_length):
+        if column.is_string and config.string_length:
+            if config.max_string_length is not None:
+                m = re.search(r"\((\d+)\)\s*$", column.data_type)
+                if m and int(m.group(1)) > config.max_string_length:
+                    return column.data_type[: m.start(1)] + str(config.max_string_length) + column.data_type[m.end(1) :]
             return column.data_type
-
+        if column.is_numeric and config.numeric_precision_and_scale:
+            return column.data_type
         return column.dtype
 
     def _fold_name(self, name: str, *, quoted: bool) -> str:

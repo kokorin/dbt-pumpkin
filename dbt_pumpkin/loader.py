@@ -178,6 +178,7 @@ class ResourceLoader:
                 yaml_path_template=raw_resource.config.get("dbt-pumpkin-path", None),
                 numeric_precision_and_scale=pumpkin_types.get("numeric-precision-and-scale", False),
                 string_length=pumpkin_types.get("string-length", False),
+                max_string_length=pumpkin_types.get("max-string-length", None),
             )
 
             # Extract version for versioned models
