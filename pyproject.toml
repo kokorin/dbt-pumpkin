@@ -41,7 +41,7 @@ path = "dbt_pumpkin/version.py"
 [tool.hatch.envs.default]
 dependencies = [
   "pytest",
-  "dbt-core~=1.10.0",
+  "dbt-core~=1.11.0",
   "dbt-duckdb~=1.10.0"
 ]
 python = "3.12"
@@ -56,8 +56,7 @@ DBT_PROFILES_DIR = ".dbt_project"
 dependencies = [
   "pytest",
   "pytest-cov",
-  "dbt-core~={matrix:dbt}.0",
-  "dbt-duckdb~={matrix:dbt}.0"
+  "dbt-core~={matrix:dbt}.0"
 ]
 installer = "uv"
 
@@ -68,6 +67,16 @@ dbt = ["1.7", "1.8"]
 [[tool.hatch.envs.hatch-test.matrix]]
 python = ["3.10", "3.11", "3.12"]
 dbt = ["1.9", "1.10"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+dbt = ["1.11"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.dbt.dependencies = [
+  {value = "dbt-duckdb~=1.10.0", if = ["1.11"]},
+  {value = "dbt-duckdb~={matrix:dbt}.0", if = ["1.7", "1.8", "1.9", "1.10"]}
+]
 
 [tool.hatch.envs.hatch-test.env-vars]
 EXPECTED_PYTHON_VERSION = "{matrix:python}"

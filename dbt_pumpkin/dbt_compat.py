@@ -57,7 +57,7 @@ def _get_dbt_patches() -> Sequence[MonkeyPatch]:
         pass
 
     event_manager_obj = None
-    if dbt_version in {"1.8", "1.9", "1.10"}:
+    if dbt_version in {"1.8", "1.9", "1.10", "1.11"}:
         import dbt_common.events.event_manager  # noqa: PLC0415
 
         event_manager_obj = dbt_common.events.event_manager.EventManager

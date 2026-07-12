@@ -39,6 +39,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _get_pumpkin(resource, key, default=None):
+    for source in [resource.config, resource.meta]:
+        value = source.get(f"dbt-pumpkin-{key}")
+        if value is not None:
+            return value
+    return default
+
+
 class ResourceLoader:
     def __init__(self, project_params: ProjectParams, resource_params: ResourceParams) -> None:
         self._project_params = project_params
@@ -173,9 +181,9 @@ class ResourceLoader:
                     fixed_patch_path = raw_resource.patch_path.split("://")[-1]
                     yaml_path = Path(fixed_patch_path)
 
-            pumpkin_types = raw_resource.config.get("dbt-pumpkin-types", {})
+            pumpkin_types = _get_pumpkin(raw_resource, "types", {})
             config: ResourceConfig = ResourceConfig(
-                yaml_path_template=raw_resource.config.get("dbt-pumpkin-path", None),
+                yaml_path_template=_get_pumpkin(raw_resource, "path"),
                 numeric_precision_and_scale=pumpkin_types.get("numeric-precision-and-scale", False),
                 string_length=pumpkin_types.get("string-length", False),
                 max_string_length=pumpkin_types.get("max-string-length", None),

@@ -44,9 +44,17 @@ def cli(*_, project_dir: Path, profiles_dir: Path, keep: bool, models: int):
         name: my_pumpkin
         version: 1.0.0
         profile: test_pumpkin
+        flags:
+          warn_error_options:
+            error: all
+            silence: []
+            warn:
+              - NoNodesForSelectionCriteria
+              - NothingToDo
         models:
           my_pumpkin:
-            +dbt-pumpkin-path: "_schema/{name}.yml"
+            +meta:
+              dbt-pumpkin-path: "_schema/{name}.yml"
     """)
     )
 
