@@ -18,13 +18,13 @@ jobs:
   do-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # fetching tags is not enough to detect version
           # https://github.com/actions/checkout/issues/1471
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           cache: pip
