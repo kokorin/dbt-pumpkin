@@ -1,5 +1,7 @@
 # DBT-PUMPKIN
 
+[![PyPI Version](https://img.shields.io/pypi/v/dbt-pumpkin)](https://pypi.org/project/dbt-pumpkin/)
+
 [![codecov](https://codecov.io/github/kokorin/dbt-pumpkin/graph/badge.svg?token=EKGRIWEIMZ)](https://codecov.io/github/kokorin/dbt-pumpkin)
 
 `dbt-pumpkin` is a command-line tool which helps to manage [DBT](https://docs.getdbt.com/docs/introduction) projects.
