@@ -60,7 +60,7 @@ jobs:
           cache: pip
       - run: pip install hatch~=1.17.0
       - run: hatch test -py 3.11 --cover
-      - uses: codecov/codecov-action@v4.5.0
+      - uses: codecov/codecov-action@v7.0.0
         with:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
