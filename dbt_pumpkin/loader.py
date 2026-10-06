@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_pumpkin(resource, key, default=None):
-    for source in [resource.config, resource.meta]:
+    # meta first: config.get() of a meta key fires GetMetaKeyWarning, which is fatal with warn_error
+    for source in [resource.meta, resource.config]:
         value = source.get(f"dbt-pumpkin-{key}")
         if value is not None:
             return value
